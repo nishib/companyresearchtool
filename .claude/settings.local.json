@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:docs.stagehand.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run web:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

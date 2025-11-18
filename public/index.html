@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Research Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Company Research Tool</h1>
+            <p class="subtitle">AI-powered company research using Stagehand SDK</p>
+        </header>
+
+        <div class="api-status" id="apiStatus">
+            <span class="status-indicator"></span>
+            <span id="statusText">Checking API status...</span>
+        </div>
+
+        <div class="search-section">
+            <form id="researchForm">
+                <div class="form-group">
+                    <label for="companyName">Company Name</label>
+                    <input
+                        type="text"
+                        id="companyName"
+                        placeholder="e.g., Stripe, Anthropic, OpenAI"
+                        required
+                    >
+                </div>
+                <button type="submit" id="submitBtn" class="btn-primary">
+                    Start Research
+                </button>
+            </form>
+
+            <div class="examples">
+                <p>Try: </p>
+                <button class="example-btn" onclick="fillExample('Stripe')">Stripe</button>
+                <button class="example-btn" onclick="fillExample('Anthropic')">Anthropic</button>
+                <button class="example-btn" onclick="fillExample('OpenAI')">OpenAI</button>
+                <button class="example-btn" onclick="fillExample('Shopify')">Shopify</button>
+            </div>
+        </div>
+
+        <div id="progressSection" class="progress-section" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Initializing...</p>
+        </div>
+
+        <div id="errorSection" class="error-section" style="display: none;">
+            <h3>❌ Error</h3>
+            <p id="errorText"></p>
+            <button onclick="resetForm()" class="btn-secondary">Try Again</button>
+        </div>
+
+        <div id="resultsSection" class="results-section" style="display: none;">
+            <div class="results-header">
+                <h2>📊 Research Results</h2>
+                <button onclick="downloadMarkdown()" class="btn-secondary">Download Report</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('preview')">Preview</button>
+                <button class="tab-btn" onclick="showTab('markdown')">Markdown</button>
+            </div>
+
+            <div id="previewTab" class="tab-content active">
+                <div id="previewContent" class="preview-content"></div>
+            </div>
+
+            <div id="markdownTab" class="tab-content">
+                <pre id="markdownContent" class="markdown-content"></pre>
+            </div>
+
+            <button onclick="resetForm()" class="btn-primary" style="margin-top: 20px;">
+                Research Another Company
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
