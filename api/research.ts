@@ -118,6 +118,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? 'BROWSERBASE'
     : 'LOCAL';
 
+  console.log(`[Stagehand] Initializing with env: ${env}, model: ${modelConfig.modelName || 'default'}`);
+  console.log(`[Stagehand] Browserbase configured: ${!!process.env.BROWSERBASE_API_KEY && !!process.env.BROWSERBASE_PROJECT_ID}`);
+  console.log(`[Stagehand] LLM API key configured: ${!!process.env.GOOGLE_API_KEY || !!process.env.ANTHROPIC_API_KEY || !!process.env.OPENAI_API_KEY}`);
+
   const stagehand = new Stagehand({
     env,
     verbose: 0,
@@ -128,26 +132,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
+    console.log(`[Stagehand] Calling stagehand.init()...`);
     await stagehand.init();
+    console.log(`[Stagehand] Initialization successful`);
     const page = stagehand.page;
     const website = guessCompanyWebsite(companyName);
+    console.log(`[Stagehand] Navigating to ${website}...`);
 
     // Extract company info
-    await page.goto(website);
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      await page.goto(website);
+      console.log(`[Stagehand] Navigation to ${website} completed`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    } catch (navError) {
+      console.error(`[Stagehand] Navigation failed:`, {
+        error: navError instanceof Error ? navError.message : String(navError),
+        stack: navError instanceof Error ? navError.stack : undefined,
+        website
+      });
+      throw navError;
+    }
 
-    const companyInfo = await page.extract({
-      instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
-      schema: CompanyInfoSchema,
-    }).catch(() => ({
-      name: companyName,
-      mission: 'Not found',
-      description: 'Not found',
-      founded: undefined,
-      headquarters: undefined,
-      industry: undefined,
-      website: undefined
-    }));
+    let companyInfo;
+    try {
+      console.log(`[Extract] Starting extraction for ${companyName} from ${website}`);
+      companyInfo = await page.extract({
+        instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
+        schema: CompanyInfoSchema,
+      });
+      console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      console.error(`[Extract] Failed to extract company info:`, {
+        error: errorMessage,
+        stack: errorStack,
+        companyName,
+        website,
+        errorType: error?.constructor?.name,
+        errorDetails: error
+      });
+      // Return fallback data
+      companyInfo = {
+        name: companyName,
+        mission: 'Not found',
+        description: 'Not found',
+        founded: undefined,
+        headquarters: undefined,
+        industry: undefined,
+        website: undefined
+      };
+    }
 
     // Generate simple markdown report
     const markdown = `# ${companyInfo.name || companyName}
@@ -178,10 +213,33 @@ ${companyInfo.mission || 'Not available'}
       },
     });
   } catch (error) {
-    console.error('Research error:', error);
-    await stagehand.close().catch(() => {});
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorName = error instanceof Error ? error.name : error?.constructor?.name || 'UnknownError';
+    
+    console.error('[Research] Full error details:', {
+      name: errorName,
+      message: errorMessage,
+      stack: errorStack,
+      errorType: error?.constructor?.name,
+      error: error,
+      companyName,
+      env,
+      hasBrowserbase: !!(process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID),
+      hasLLMKey: !!(process.env.GOOGLE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY)
+    });
+    
+    await stagehand.close().catch((closeError) => {
+      console.error('[Research] Error closing stagehand:', closeError);
+    });
+    
     res.status(500).json({
-      error: error instanceof Error ? error.message : 'Research failed'
+      error: errorMessage,
+      errorType: errorName,
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: errorStack,
+        fullError: String(error)
+      } : undefined
     });
   }
 }

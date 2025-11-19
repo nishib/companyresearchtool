@@ -157,13 +157,30 @@ export class CompanyResearcher {
       await delay(3000);
 
       // Extract company information from the website
-      const companyInfo = await page.extract({
-        instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL from this page. Look for About Us, Company, or similar sections.',
-        schema: CompanyInfoSchema,
-      });
-
-      log('Company information extracted', 'success');
-      return companyInfo;
+      let companyInfo;
+      try {
+        log(`[Extract] Starting extraction for ${companyName} from ${companyWebsite}`, 'info');
+        companyInfo = await page.extract({
+          instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL from this page. Look for About Us, Company, or similar sections.',
+          schema: CompanyInfoSchema,
+        });
+        log('Company information extracted', 'success');
+        console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
+        return companyInfo;
+      } catch (extractError) {
+        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
+        log(`Failed to extract company info: ${errorMessage}`, 'error');
+        console.error(`[Extract] Failed to extract company info:`, {
+          error: errorMessage,
+          stack: errorStack,
+          companyName,
+          website: companyWebsite,
+          errorType: extractError?.constructor?.name,
+          errorDetails: extractError
+        });
+        throw extractError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
       log(`Failed to extract company info: ${error}`, 'warn');
       // Return minimal info if extraction fails
@@ -187,14 +204,30 @@ export class CompanyResearcher {
       await delay(2000);
 
       // Extract news items from search results
-      const newsData = await page.extract({
-        instruction: 'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible.',
-        schema: NewsSchema,
-      });
-
-      const news = newsData.articles || [];
-      log(`Extracted ${news.length} news items`, 'success');
-      return news.slice(0, 5); // Limit to 5 items
+      let newsData;
+      try {
+        log(`[Extract] Starting news extraction for ${companyName}`, 'info');
+        newsData = await page.extract({
+          instruction: 'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible.',
+          schema: NewsSchema,
+        });
+        const news = newsData.articles || [];
+        log(`Extracted ${news.length} news items`, 'success');
+        console.log(`[Extract] Successfully extracted news:`, JSON.stringify(newsData, null, 2));
+        return news.slice(0, 5); // Limit to 5 items
+      } catch (extractError) {
+        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
+        log(`Failed to extract news: ${errorMessage}`, 'error');
+        console.error(`[Extract] Failed to extract news:`, {
+          error: errorMessage,
+          stack: errorStack,
+          companyName,
+          errorType: extractError?.constructor?.name,
+          errorDetails: extractError
+        });
+        throw extractError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
       log(`Failed to extract news: ${error}`, 'warn');
       return [];
@@ -213,13 +246,29 @@ export class CompanyResearcher {
       await delay(3000);
 
       // Extract tech stack
-      const techStack = await page.extract({
-        instruction: 'Extract information about the technologies used by this company. Look for programming languages, frameworks, tools, and infrastructure. If this is a careers page, look at job listings for required skills. If this is a tech blog, look at technologies mentioned.',
-        schema: TechStackSchema,
-      });
-
-      log('Tech stack detected', 'success');
-      return techStack;
+      let techStack;
+      try {
+        log(`[Extract] Starting tech stack extraction for ${companyName}`, 'info');
+        techStack = await page.extract({
+          instruction: 'Extract information about the technologies used by this company. Look for programming languages, frameworks, tools, and infrastructure. If this is a careers page, look at job listings for required skills. If this is a tech blog, look at technologies mentioned.',
+          schema: TechStackSchema,
+        });
+        log('Tech stack detected', 'success');
+        console.log(`[Extract] Successfully extracted tech stack:`, JSON.stringify(techStack, null, 2));
+        return techStack;
+      } catch (extractError) {
+        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
+        log(`Failed to extract tech stack: ${errorMessage}`, 'error');
+        console.error(`[Extract] Failed to extract tech stack:`, {
+          error: errorMessage,
+          stack: errorStack,
+          companyName,
+          errorType: extractError?.constructor?.name,
+          errorDetails: extractError
+        });
+        throw extractError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
       log(`Failed to extract tech stack: ${error}`, 'warn');
       // Return empty tech stack if extraction fails
@@ -244,14 +293,30 @@ export class CompanyResearcher {
       await delay(3000);
 
       // Extract leadership
-      const leadershipData = await page.extract({
-        instruction: 'Extract information about the company leadership team. Get the names, titles, and brief bios of key executives (CEO, CTO, CFO, etc.). Include LinkedIn URLs if visible.',
-        schema: LeadershipSchema,
-      });
-
-      const leadership = leadershipData.leaders || [];
-      log(`Extracted ${leadership.length} leaders`, 'success');
-      return leadership.slice(0, 10); // Limit to 10 leaders
+      let leadershipData;
+      try {
+        log(`[Extract] Starting leadership extraction for ${companyName}`, 'info');
+        leadershipData = await page.extract({
+          instruction: 'Extract information about the company leadership team. Get the names, titles, and brief bios of key executives (CEO, CTO, CFO, etc.). Include LinkedIn URLs if visible.',
+          schema: LeadershipSchema,
+        });
+        const leadership = leadershipData.leaders || [];
+        log(`Extracted ${leadership.length} leaders`, 'success');
+        console.log(`[Extract] Successfully extracted leadership:`, JSON.stringify(leadershipData, null, 2));
+        return leadership.slice(0, 10); // Limit to 10 leaders
+      } catch (extractError) {
+        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
+        log(`Failed to extract leadership: ${errorMessage}`, 'error');
+        console.error(`[Extract] Failed to extract leadership:`, {
+          error: errorMessage,
+          stack: errorStack,
+          companyName,
+          errorType: extractError?.constructor?.name,
+          errorDetails: extractError
+        });
+        throw extractError; // Re-throw to be caught by outer catch
+      }
     } catch (error) {
       log(`Failed to extract leadership: ${error}`, 'warn');
       return [];
