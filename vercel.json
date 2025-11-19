@@ -4,5 +4,10 @@
       "source": "/",
       "destination": "/public/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/research.ts": {
+      "maxDuration": 300
+    }
+  }
 }
