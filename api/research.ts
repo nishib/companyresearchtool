@@ -1,3 +1,6 @@
+// Configure environment before anything else to avoid pino-pretty issues
+import '../src/init.js';
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Stagehand } from '@browserbasehq/stagehand';
 import { z } from 'zod';
