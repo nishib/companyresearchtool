@@ -21,7 +21,9 @@
       "WebFetch(domain:stagehandsdk-i5tacgb9a-nbs-projects-ccca7cff.vercel.app)",
       "WebFetch(domain:stagehandsdk-41e6j9u1w-nbs-projects-ccca7cff.vercel.app)",
       "WebFetch(domain:stagehandsdk-hp19dt0t5-nbs-projects-ccca7cff.vercel.app)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm view:*)",
+      "Bash(npx tsc)"
     ],
     "deny": [],
     "ask": []

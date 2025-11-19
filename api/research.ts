@@ -96,6 +96,80 @@ function guessCompanyWebsite(companyName: string): string {
   return knownCompanies[normalized] || `https://www.${normalized}.com`;
 }
 
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+interface RetryOptions {
+  maxRetries?: number;
+  initialDelay?: number;
+  maxDelay?: number;
+  backoffMultiplier?: number;
+  shouldRetry?: (error: any) => boolean;
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
+  const {
+    maxRetries = 3,
+    initialDelay = 1000,
+    maxDelay = 10000,
+    backoffMultiplier = 2,
+    shouldRetry = () => true,
+  } = options;
+
+  let lastError: any;
+  let currentDelay = initialDelay;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (!shouldRetry(error)) {
+        throw error;
+      }
+
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(
+        `[Retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${errorMessage}. Retrying in ${currentDelay}ms...`
+      );
+
+      await delay(currentDelay);
+      currentDelay = Math.min(currentDelay * backoffMultiplier, maxDelay);
+    }
+  }
+
+  throw lastError;
+}
+
+function isRetryableError(error: any): boolean {
+  if (!error) return false;
+
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorName = error instanceof Error ? error.name : error?.constructor?.name || '';
+
+  return (
+    errorName.includes('ParseError') ||
+    errorName.includes('TimeoutError') ||
+    errorName.includes('NetworkError') ||
+    errorMessage.includes('parse') ||
+    errorMessage.includes('timeout') ||
+    errorMessage.includes('Timeout') ||
+    errorMessage.includes('network') ||
+    errorMessage.includes('ECONNREFUSED') ||
+    errorMessage.includes('ETIMEDOUT') ||
+    errorMessage.includes('Failed to parse')
+  );
+}
+
 // Set up unhandled rejection handler for better error tracking
 if (typeof process !== 'undefined') {
   const originalUnhandledRejection = process.listeners('unhandledRejection');
@@ -139,8 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const modelConfig = getModelConfig();
   const env = process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID
-    ? 'BROWSERBASE'
-    : 'LOCAL';
+    ? 'BROWSERBASE' as const
+    : 'LOCAL' as const;
 
   console.log(`[Stagehand] Initializing with env: ${env}, model: ${modelConfig.modelName || 'default'}`);
   console.log(`[Stagehand] Browserbase configured: ${!!process.env.BROWSERBASE_API_KEY && !!process.env.BROWSERBASE_PROJECT_ID}`);
@@ -152,14 +226,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     apiKey: process.env.BROWSERBASE_API_KEY,
     projectId: process.env.BROWSERBASE_PROJECT_ID,
     disablePino: true,
-    ...modelConfig,
+    model: modelConfig.modelName ? {
+      ...modelConfig.modelClientOptions,
+      modelName: modelConfig.modelName,
+    } : undefined,
   });
 
   try {
-    console.log(`[Stagehand] Calling stagehand.init()...`);
-    await stagehand.init();
-    console.log(`[Stagehand] Initialization successful`);
-    const page = stagehand.page;
+    console.log(`[Stagehand] V3 initialized (no explicit init() needed)`);
+    const page = stagehand.context.pages()[0];
+    if (!page) {
+      throw new Error('No page available in Stagehand context');
+    }
     const website = guessCompanyWebsite(companyName);
     console.log(`[Stagehand] Navigating to ${website}...`);
 
@@ -167,7 +245,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       console.log(`[Stagehand] Navigating to ${website}...`);
       await page.goto(website, {
-        timeout: 60000, // 60 second timeout for navigation
+        timeoutMs: 60000, // 60 second timeout for navigation
         waitUntil: 'domcontentloaded' // Don't wait for all resources to load
       });
       console.log(`[Stagehand] Navigation to ${website} completed`);
@@ -196,20 +274,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let companyInfo;
     try {
       console.log(`[Extract] Starting extraction for ${companyName} from ${website}`);
-      
-      // Add timeout wrapper for extraction
-      const extractionPromise = page.extract({
-        instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
-        schema: CompanyInfoSchema,
-        domSettleTimeoutMs: 5000, // Wait up to 5s for DOM to settle
-      });
-      
-      // Add overall timeout of 60 seconds for extraction
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Extraction timeout after 60 seconds')), 60000);
-      });
-      
-      companyInfo = await Promise.race([extractionPromise, timeoutPromise]);
+
+      // Use retry logic with exponential backoff
+      companyInfo = await retryWithBackoff(
+        async () => {
+          // Add timeout wrapper for extraction
+          const extractionPromise = stagehand.extract(
+            'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
+            CompanyInfoSchema
+          );
+
+          // Add overall timeout of 60 seconds for extraction
+          const timeoutPromise = new Promise<z.infer<typeof CompanyInfoSchema>>((_, reject) => {
+            setTimeout(() => reject(new Error('Extraction timeout after 60 seconds')), 60000);
+          });
+
+          return await Promise.race([extractionPromise, timeoutPromise]);
+        },
+        {
+          maxRetries: 2,
+          initialDelay: 2000,
+          shouldRetry: isRetryableError,
+        }
+      );
+
       console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -217,7 +305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const errorName = error instanceof Error ? error.name : error?.constructor?.name || 'UnknownError';
       
       // Enhanced error logging
-      console.error(`[Extract] Failed to extract company info:`, {
+      console.error(`[Extract] Failed to extract company info after retries:`, {
         error: errorMessage,
         name: errorName,
         stack: errorStack,
@@ -231,6 +319,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isTimeout: errorMessage.includes('timeout') || errorMessage.includes('Timeout'),
         isNetworkError: errorMessage.includes('network') || errorMessage.includes('ECONNREFUSED'),
         isParseError: errorMessage.includes('parse') || errorMessage.includes('parsing'),
+        wasRetried: isRetryableError(error),
       });
       
       // Return fallback data

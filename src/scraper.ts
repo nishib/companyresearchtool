@@ -14,7 +14,7 @@ import {
   LeadershipSchema,
   CompanyResearchReport,
 } from './types.js';
-import { log, delay } from './utils.js';
+import { log, delay, retryWithBackoff, isRetryableError } from './utils.js';
 
 export class CompanyResearcher {
   private stagehand: Stagehand;
@@ -28,8 +28,8 @@ export class CompanyResearcher {
 
     // Use BROWSERBASE if credentials available, otherwise LOCAL
     const env = process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID
-      ? 'BROWSERBASE'
-      : 'LOCAL';
+      ? 'BROWSERBASE' as const
+      : 'LOCAL' as const;
 
     this.stagehand = new Stagehand({
       env,
@@ -37,7 +37,10 @@ export class CompanyResearcher {
       apiKey: process.env.BROWSERBASE_API_KEY,
       projectId: process.env.BROWSERBASE_PROJECT_ID,
       disablePino: true,
-      ...modelConfig,
+      model: modelConfig.modelName ? {
+        ...modelConfig.modelClientOptions,
+        modelName: modelConfig.modelName,
+      } : undefined,
     });
 
     if (verbose) {
@@ -103,8 +106,7 @@ export class CompanyResearcher {
   }
 
   async initialize(): Promise<void> {
-    const initResult = await this.stagehand.init();
-
+    // V3 doesn't need explicit init() - initialization happens in constructor
     if (this.verbose) {
       log('Stagehand initialized successfully', 'success');
 
@@ -148,7 +150,11 @@ export class CompanyResearcher {
     log('Extracting company information...', 'info');
 
     try {
-      const page = this.stagehand.page;
+      // Get the first page from context
+      const page = this.stagehand.context.pages()[0];
+      if (!page) {
+        throw new Error('No page available in Stagehand context');
+      }
 
       // Navigate directly to the company website
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -156,21 +162,32 @@ export class CompanyResearcher {
       await page.goto(companyWebsite);
       await delay(3000);
 
-      // Extract company information from the website
+      // Extract company information from the website with retry logic
       let companyInfo;
       try {
         log(`[Extract] Starting extraction for ${companyName} from ${companyWebsite}`, 'info');
-        companyInfo = await page.extract({
-          instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL from this page. Look for About Us, Company, or similar sections.',
-          schema: CompanyInfoSchema,
-        });
+
+        companyInfo = await retryWithBackoff(
+          async () => {
+            return await this.stagehand.extract(
+              'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL from this page. Look for About Us, Company, or similar sections.',
+              CompanyInfoSchema
+            );
+          },
+          {
+            maxRetries: 2,
+            initialDelay: 2000,
+            shouldRetry: isRetryableError,
+          }
+        );
+
         log('Company information extracted', 'success');
         console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
         return companyInfo;
       } catch (extractError) {
         const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
         const errorStack = extractError instanceof Error ? extractError.stack : undefined;
-        log(`Failed to extract company info: ${errorMessage}`, 'error');
+        log(`Failed to extract company info after retries: ${errorMessage}`, 'error');
         console.error(`[Extract] Failed to extract company info:`, {
           error: errorMessage,
           stack: errorStack,
@@ -196,7 +213,10 @@ export class CompanyResearcher {
     log('Extracting recent news...', 'info');
 
     try {
-      const page = this.stagehand.page;
+      const page = this.stagehand.context.pages()[0];
+      if (!page) {
+        throw new Error('No page available in Stagehand context');
+      }
 
       // Navigate to company newsroom or blog
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -207,10 +227,10 @@ export class CompanyResearcher {
       let newsData;
       try {
         log(`[Extract] Starting news extraction for ${companyName}`, 'info');
-        newsData = await page.extract({
-          instruction: 'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible.',
-          schema: NewsSchema,
-        });
+        newsData = await this.stagehand.extract(
+          'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible.',
+          NewsSchema
+        );
         const news = newsData.articles || [];
         log(`Extracted ${news.length} news items`, 'success');
         console.log(`[Extract] Successfully extracted news:`, JSON.stringify(newsData, null, 2));
@@ -238,7 +258,10 @@ export class CompanyResearcher {
     log('Detecting tech stack...', 'info');
 
     try {
-      const page = this.stagehand.page;
+      const page = this.stagehand.context.pages()[0];
+      if (!page) {
+        throw new Error('No page available in Stagehand context');
+      }
 
       // Navigate to company careers page
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -249,10 +272,10 @@ export class CompanyResearcher {
       let techStack;
       try {
         log(`[Extract] Starting tech stack extraction for ${companyName}`, 'info');
-        techStack = await page.extract({
-          instruction: 'Extract information about the technologies used by this company. Look for programming languages, frameworks, tools, and infrastructure. If this is a careers page, look at job listings for required skills. If this is a tech blog, look at technologies mentioned.',
-          schema: TechStackSchema,
-        });
+        techStack = await this.stagehand.extract(
+          'Extract information about the technologies used by this company. Look for programming languages, frameworks, tools, and infrastructure. If this is a careers page, look at job listings for required skills. If this is a tech blog, look at technologies mentioned.',
+          TechStackSchema
+        );
         log('Tech stack detected', 'success');
         console.log(`[Extract] Successfully extracted tech stack:`, JSON.stringify(techStack, null, 2));
         return techStack;
@@ -285,7 +308,10 @@ export class CompanyResearcher {
     log('Extracting leadership information...', 'info');
 
     try {
-      const page = this.stagehand.page;
+      const page = this.stagehand.context.pages()[0];
+      if (!page) {
+        throw new Error('No page available in Stagehand context');
+      }
 
       // Navigate to company about/team page
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -296,10 +322,10 @@ export class CompanyResearcher {
       let leadershipData;
       try {
         log(`[Extract] Starting leadership extraction for ${companyName}`, 'info');
-        leadershipData = await page.extract({
-          instruction: 'Extract information about the company leadership team. Get the names, titles, and brief bios of key executives (CEO, CTO, CFO, etc.). Include LinkedIn URLs if visible.',
-          schema: LeadershipSchema,
-        });
+        leadershipData = await this.stagehand.extract(
+          'Extract information about the company leadership team. Get the names, titles, and brief bios of key executives (CEO, CTO, CFO, etc.). Include LinkedIn URLs if visible.',
+          LeadershipSchema
+        );
         const leadership = leadershipData.leaders || [];
         log(`Extracted ${leadership.length} leaders`, 'success');
         console.log(`[Extract] Successfully extracted leadership:`, JSON.stringify(leadershipData, null, 2));
