@@ -1,3 +1,5 @@
+// MUST be first - configures environment to prevent pino errors
+import './init.js';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -115,8 +117,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 Company Research Web App`);
-  console.log(`📡 Server running at http://localhost:${PORT}`);
-  console.log(`\nOpen your browser and visit: http://localhost:${PORT}\n`);
-});
+// Only start server if not in Vercel (Vercel handles this automatically)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Company Research Web App`);
+    console.log(`📡 Server running at http://localhost:${PORT}`);
+    console.log(`\nOpen your browser and visit: http://localhost:${PORT}\n`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;

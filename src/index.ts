@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// MUST be first - configures environment to prevent pino errors
+import './init.js';
 import 'dotenv/config';
 import { Command } from 'commander';
 import chalk from 'chalk';

@@ -1,3 +1,5 @@
+// MUST be first - configures environment to prevent pino errors
+import './init.js';
 import 'dotenv/config';
 import { Stagehand } from '@browserbasehq/stagehand';
 import { z } from 'zod';
@@ -54,10 +56,16 @@ export class CompanyResearcher {
     } else if (process.env.ANTHROPIC_API_KEY) {
       return {
         modelName: 'claude-3-5-sonnet-20241022',
+        modelClientOptions: {
+          apiKey: process.env.ANTHROPIC_API_KEY,
+        },
       };
     } else if (process.env.OPENAI_API_KEY) {
       return {
         modelName: 'gpt-4o',
+        modelClientOptions: {
+          apiKey: process.env.OPENAI_API_KEY,
+        },
       };
     }
 
