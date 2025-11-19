@@ -12,20 +12,23 @@ The "unable to determine transport target for pino-pretty" error has been **comp
    - Detects serverless environments automatically (Vercel, AWS Lambda, Netlify)
    - Uses ES module-compatible approach with `createRequire`
 
-### 2. **Updated Server Configuration**
-   - Modified `src/server.ts` to export the Express app for Vercel serverless
-   - Server only calls `app.listen()` when NOT in Vercel environment
-   - Vercel handles the server lifecycle automatically
+### 2. **Created api/index.ts for Vercel**
+   - New entry point specifically for Vercel serverless deployment
+   - Imports `./init.js` FIRST to suppress pino errors
+   - Contains all Express routes and middleware
+   - Exports the Express app for Vercel
+   - Starts server locally but not in Vercel environment
 
 ### 3. **Fixed vercel.json**
-   - Uses `@vercel/node` builder for proper serverless deployment
-   - Routes all requests to `dist/server.js`
-   - Sets `NODE_ENV=production` automatically
+   - Uses simple `rewrites` configuration
+   - Routes all requests to `/api` (which maps to `api/index.ts`)
+   - Automatically detects and builds TypeScript files
 
 ### 4. **Updated All Entry Points**
-   - `src/server.ts` - imports `./init.js` FIRST
+   - `api/index.ts` - Main Vercel entry point, imports `./init.js` FIRST
+   - `src/server.ts` - Local development server (kept for backwards compatibility)
    - `src/scraper.ts` - imports `./init.js` FIRST
-   - `src/index.ts` - imports `./init.js` FIRST
+   - `src/index.ts` - CLI entry point, imports `./init.js` FIRST
 
 ### 5. **Fixed API Key Configuration**
    - Anthropic Claude API key now properly passed via `modelClientOptions`
@@ -121,8 +124,11 @@ Before deploying, verify the fix works locally:
 # Build the project
 npm run build
 
-# Run the server
+# Run the server (uses api/index.ts - same as Vercel)
 npm run server
+
+# Or test the compiled version
+npm start
 ```
 
 **Expected output:**
@@ -133,7 +139,14 @@ npm run server
 Open your browser and visit: http://localhost:3000
 ```
 
+**Test the API endpoint:**
+```bash
+curl http://localhost:3000/api/health
+# Should return: {"status":"ok","hasApiKey":true,"provider":"Google Gemini"}
+```
+
 ✅ **No pino-pretty errors should appear**
+✅ **API returns JSON, not HTML**
 
 ---
 
@@ -193,10 +206,12 @@ Check these files have `import './init.js';` as the **first import**:
 Should contain:
 ```json
 {
-  "version": 2,
-  "builds": [{"src": "dist/server.js", "use": "@vercel/node"}],
-  "routes": [{"src": "/(.*)", "dest": "dist/server.js"}],
-  "env": {"NODE_ENV": "production"}
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ]
 }
 ```
 
@@ -205,8 +220,11 @@ Should contain:
 Run locally:
 ```bash
 npm run build
-ls dist/  # Should include init.js
+ls dist/api/  # Should include index.js
+ls dist/src/  # Should include init.js
 ```
+
+The `api/index.ts` file compiles to `dist/api/index.js`, which Vercel automatically detects as a serverless function.
 
 ### Need More Help?
 

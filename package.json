@@ -9,11 +9,11 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/api/index.js",
     "dev": "tsx src/index.ts",
     "research": "tsx src/index.ts",
     "example": "tsx src/example.ts",
-    "server": "tsx src/server.ts",
+    "server": "tsx api/index.ts",
     "web": "npm run server"
   },
   "keywords": [
