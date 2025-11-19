@@ -36,6 +36,7 @@ export class CompanyResearcher {
       verbose: verbose ? 1 : 0,
       apiKey: process.env.BROWSERBASE_API_KEY,
       projectId: process.env.BROWSERBASE_PROJECT_ID,
+      disablePino: true,
       ...modelConfig,
     });
 

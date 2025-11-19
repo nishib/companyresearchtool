@@ -123,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     verbose: 0,
     apiKey: process.env.BROWSERBASE_API_KEY,
     projectId: process.env.BROWSERBASE_PROJECT_ID,
+    disablePino: true,
     ...modelConfig,
   });
 

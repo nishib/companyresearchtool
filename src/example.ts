@@ -11,6 +11,7 @@ async function main() {
     env,
     apiKey: process.env.BROWSERBASE_API_KEY,
     projectId: process.env.BROWSERBASE_PROJECT_ID,
+    disablePino: true,
     modelName: "google/gemini-2.0-flash-exp",
     modelClientOptions: {
       apiKey: process.env.GOOGLE_API_KEY,
