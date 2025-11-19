@@ -2,11 +2,44 @@ let currentSessionId = null;
 let currentMarkdown = '';
 let pollInterval = null;
 
+async function requestJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get('content-type') || '';
+    const body = await response.text();
+    const isJson = contentType.includes('application/json');
+
+    let data = null;
+    if (isJson) {
+        if (body) {
+            try {
+                data = JSON.parse(body);
+            } catch {
+                throw new Error('Server returned invalid JSON');
+            }
+        } else {
+            data = {};
+        }
+    }
+
+    if (!response.ok) {
+        const message =
+            (data && (data.error || data.message)) ||
+            body ||
+            `Request failed (${response.status})`;
+        throw new Error(message);
+    }
+
+    if (isJson) {
+        return data;
+    }
+
+    throw new Error('Server returned unexpected response format');
+}
+
 // Check API status on load
 async function checkApiStatus() {
     try {
-        const response = await fetch('/api/health');
-        const data = await response.json();
+        const data = await requestJson('/api/health');
 
         const statusEl = document.getElementById('apiStatus');
         const statusText = document.getElementById('statusText');
@@ -51,18 +84,11 @@ document.getElementById('researchForm').addEventListener('submit', async (e) => 
 
     try {
         // Direct research call (no polling needed)
-        const response = await fetch('/api/research', {
+        const result = await requestJson('/api/research', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ companyName })
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Research failed');
-        }
-
-        const result = await response.json();
         showResults(result);
     } catch (error) {
         showError(error.message);

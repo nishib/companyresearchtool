@@ -15,7 +15,13 @@
       "Bash(xargs kill:*)",
       "Bash(pkill:*)",
       "WebFetch(domain:companyresearchtool.vercel.app)",
-      "WebFetch(domain:vercel.com)"
+      "WebFetch(domain:vercel.com)",
+      "Bash(git check-ignore:*)",
+      "Bash(vercel:*)",
+      "WebFetch(domain:stagehandsdk-i5tacgb9a-nbs-projects-ccca7cff.vercel.app)",
+      "WebFetch(domain:stagehandsdk-41e6j9u1w-nbs-projects-ccca7cff.vercel.app)",
+      "WebFetch(domain:stagehandsdk-hp19dt0t5-nbs-projects-ccca7cff.vercel.app)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
