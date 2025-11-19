@@ -135,7 +135,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const companyInfo = await page.extract({
       instruction: 'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
       schema: CompanyInfoSchema,
-    }).catch(() => ({ name: companyName, mission: 'Not found', description: 'Not found' }));
+    }).catch(() => ({
+      name: companyName,
+      mission: 'Not found',
+      description: 'Not found',
+      founded: undefined,
+      headquarters: undefined,
+      industry: undefined,
+      website: undefined
+    }));
 
     // Generate simple markdown report
     const markdown = `# ${companyInfo.name || companyName}

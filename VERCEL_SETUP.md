@@ -1,13 +1,8 @@
-# Vercel Deployment Guide - FULLY FIXED
+# Vercel Deployment Guide
 
-## ✅ All Deployment Issues RESOLVED
+## ✅ Pino-Pretty Error - COMPLETELY FIXED
 
-- ✅ Pino-pretty error completely fixed
-- ✅ 404 NOT_FOUND error resolved
-- ✅ JSON parsing errors eliminated
-- ✅ Configured for **Gemini API** (your API key)
-- ✅ Browserbase integration working
-- ✅ Vercel serverless functions properly structured
+The "unable to determine transport target for pino-pretty" error has been **completely resolved** for Vercel deployment.
 
 ## What Was Fixed
 
@@ -17,25 +12,20 @@
    - Detects serverless environments automatically (Vercel, AWS Lambda, Netlify)
    - Uses ES module-compatible approach with `createRequire`
 
-### 2. **Restructured for Vercel Serverless Functions**
-   - `api/health.ts` - Health check endpoint (returns API status)
-   - `api/research.ts` - Research endpoint (self-contained, all logic inline)
-   - `api/index.ts` - Serves frontend HTML
-   - Each API route is a standalone Vercel serverless function
-   - Pino-pretty suppression built into research.ts
-   - No session management needed - direct synchronous responses
+### 2. **Updated Server Configuration**
+   - Modified `src/server.ts` to export the Express app for Vercel serverless
+   - Server only calls `app.listen()` when NOT in Vercel environment
+   - Vercel handles the server lifecycle automatically
 
 ### 3. **Fixed vercel.json**
-   - Uses simple `rewrites` configuration
-   - Allocates 3008MB memory for research function
-   - 60 second timeout for research operations
-   - Routes homepage to `/api/index`
+   - Uses `@vercel/node` builder for proper serverless deployment
+   - Routes all requests to `dist/server.js`
+   - Sets `NODE_ENV=production` automatically
 
-### 4. **Updated Frontend (public/app.js)**
-   - Removed session polling logic
-   - Direct API calls instead of session-based approach
-   - Simplified error handling
-   - Works with Vercel serverless architecture
+### 4. **Updated All Entry Points**
+   - `src/server.ts` - imports `./init.js` FIRST
+   - `src/scraper.ts` - imports `./init.js` FIRST
+   - `src/index.ts` - imports `./init.js` FIRST
 
 ### 5. **Fixed API Key Configuration**
    - Anthropic Claude API key now properly passed via `modelClientOptions`
@@ -80,17 +70,27 @@ vercel
 
 Go to your Vercel project → **Settings** → **Environment Variables**
 
-#### Required API Key:
+#### Required API Key (choose ONE):
 
-**Google Gemini API Key (YOU ARE USING THIS)**
+**Option 1: Google Gemini (Recommended)**
 ```
 GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-The code is configured to use Gemini as the primary LLM:
-- Model: `google/gemini-2.0-flash-exp`
-- Priority order: Google Gemini > Anthropic Claude > OpenAI GPT
-- Your Gemini key will be used automatically
+**Option 2: Anthropic Claude**
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+**Option 3: OpenAI GPT-4**
+```
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+The app automatically uses the first available key in this priority order:
+1. `GOOGLE_API_KEY` (highest priority)
+2. `ANTHROPIC_API_KEY`
+3. `OPENAI_API_KEY`
 
 #### Optional: Browserbase (Recommended for Vercel Serverless)
 
@@ -121,11 +121,8 @@ Before deploying, verify the fix works locally:
 # Build the project
 npm run build
 
-# Run the server (uses api/index.ts - same as Vercel)
+# Run the server
 npm run server
-
-# Or test the compiled version
-npm start
 ```
 
 **Expected output:**
@@ -136,14 +133,7 @@ npm start
 Open your browser and visit: http://localhost:3000
 ```
 
-**Test the API endpoint:**
-```bash
-curl http://localhost:3000/api/health
-# Should return: {"status":"ok","hasApiKey":true,"provider":"Google Gemini"}
-```
-
 ✅ **No pino-pretty errors should appear**
-✅ **API returns JSON, not HTML**
 
 ---
 
@@ -203,12 +193,10 @@ Check these files have `import './init.js';` as the **first import**:
 Should contain:
 ```json
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api"
-    }
-  ]
+  "version": 2,
+  "builds": [{"src": "dist/server.js", "use": "@vercel/node"}],
+  "routes": [{"src": "/(.*)", "dest": "dist/server.js"}],
+  "env": {"NODE_ENV": "production"}
 }
 ```
 
@@ -217,11 +205,8 @@ Should contain:
 Run locally:
 ```bash
 npm run build
-ls dist/api/  # Should include index.js
-ls dist/src/  # Should include init.js
+ls dist/  # Should include init.js
 ```
-
-The `api/index.ts` file compiles to `dist/api/index.js`, which Vercel automatically detects as a serverless function.
 
 ### Need More Help?
 
