@@ -46,10 +46,11 @@ document.getElementById('researchForm').addEventListener('submit', async (e) => 
 
     // Show progress
     document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('progressText').textContent = `Researching ${companyName}... This may take 30-60 seconds.`;
     document.getElementById('submitBtn').disabled = true;
 
     try {
-        // Start research
+        // Direct research call (no polling needed)
         const response = await fetch('/api/research', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,50 +62,14 @@ document.getElementById('researchForm').addEventListener('submit', async (e) => 
             throw new Error(error.error || 'Research failed');
         }
 
-        const { sessionId } = await response.json();
-        currentSessionId = sessionId;
-
-        // Start polling for status
-        pollStatus();
+        const result = await response.json();
+        showResults(result);
     } catch (error) {
         showError(error.message);
     }
 });
 
-// Poll research status
-async function pollStatus() {
-    if (!currentSessionId) return;
-
-    try {
-        const response = await fetch(`/api/research/${currentSessionId}`);
-        const data = await response.json();
-
-        // Update progress text
-        document.getElementById('progressText').textContent = data.progress;
-
-        if (data.status === 'completed') {
-            stopPolling();
-            showResults(data.result);
-        } else if (data.status === 'error') {
-            stopPolling();
-            showError(data.error || 'Research failed');
-        } else {
-            // Continue polling
-            pollInterval = setTimeout(pollStatus, 1000);
-        }
-    } catch (error) {
-        stopPolling();
-        showError('Failed to get research status');
-    }
-}
-
-// Stop polling
-function stopPolling() {
-    if (pollInterval) {
-        clearTimeout(pollInterval);
-        pollInterval = null;
-    }
-}
+// Polling functions removed - direct API call now
 
 // Show error
 function showError(message) {
@@ -199,7 +164,6 @@ function resetForm() {
     document.getElementById('progressSection').style.display = 'none';
     currentSessionId = null;
     currentMarkdown = '';
-    stopPolling();
 }
 
 // Initialize

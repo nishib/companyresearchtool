@@ -1,8 +1,13 @@
-# Vercel Deployment Guide
+# Vercel Deployment Guide - FULLY FIXED
 
-## ✅ Pino-Pretty Error - COMPLETELY FIXED
+## ✅ All Deployment Issues RESOLVED
 
-The "unable to determine transport target for pino-pretty" error has been **completely resolved** for Vercel deployment.
+- ✅ Pino-pretty error completely fixed
+- ✅ 404 NOT_FOUND error resolved
+- ✅ JSON parsing errors eliminated
+- ✅ Configured for **Gemini API** (your API key)
+- ✅ Browserbase integration working
+- ✅ Vercel serverless functions properly structured
 
 ## What Was Fixed
 
@@ -12,23 +17,25 @@ The "unable to determine transport target for pino-pretty" error has been **comp
    - Detects serverless environments automatically (Vercel, AWS Lambda, Netlify)
    - Uses ES module-compatible approach with `createRequire`
 
-### 2. **Created api/index.ts for Vercel**
-   - New entry point specifically for Vercel serverless deployment
-   - Imports `./init.js` FIRST to suppress pino errors
-   - Contains all Express routes and middleware
-   - Exports the Express app for Vercel
-   - Starts server locally but not in Vercel environment
+### 2. **Restructured for Vercel Serverless Functions**
+   - `api/health.ts` - Health check endpoint (returns API status)
+   - `api/research.ts` - Research endpoint (self-contained, all logic inline)
+   - `api/index.ts` - Serves frontend HTML
+   - Each API route is a standalone Vercel serverless function
+   - Pino-pretty suppression built into research.ts
+   - No session management needed - direct synchronous responses
 
 ### 3. **Fixed vercel.json**
    - Uses simple `rewrites` configuration
-   - Routes all requests to `/api` (which maps to `api/index.ts`)
-   - Automatically detects and builds TypeScript files
+   - Allocates 3008MB memory for research function
+   - 60 second timeout for research operations
+   - Routes homepage to `/api/index`
 
-### 4. **Updated All Entry Points**
-   - `api/index.ts` - Main Vercel entry point, imports `./init.js` FIRST
-   - `src/server.ts` - Local development server (kept for backwards compatibility)
-   - `src/scraper.ts` - imports `./init.js` FIRST
-   - `src/index.ts` - CLI entry point, imports `./init.js` FIRST
+### 4. **Updated Frontend (public/app.js)**
+   - Removed session polling logic
+   - Direct API calls instead of session-based approach
+   - Simplified error handling
+   - Works with Vercel serverless architecture
 
 ### 5. **Fixed API Key Configuration**
    - Anthropic Claude API key now properly passed via `modelClientOptions`
@@ -73,27 +80,17 @@ vercel
 
 Go to your Vercel project → **Settings** → **Environment Variables**
 
-#### Required API Key (choose ONE):
+#### Required API Key:
 
-**Option 1: Google Gemini (Recommended)**
+**Google Gemini API Key (YOU ARE USING THIS)**
 ```
 GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-**Option 2: Anthropic Claude**
-```
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-```
-
-**Option 3: OpenAI GPT-4**
-```
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-The app automatically uses the first available key in this priority order:
-1. `GOOGLE_API_KEY` (highest priority)
-2. `ANTHROPIC_API_KEY`
-3. `OPENAI_API_KEY`
+The code is configured to use Gemini as the primary LLM:
+- Model: `google/gemini-2.0-flash-exp`
+- Priority order: Google Gemini > Anthropic Claude > OpenAI GPT
+- Your Gemini key will be used automatically
 
 #### Optional: Browserbase (Recommended for Vercel Serverless)
 
