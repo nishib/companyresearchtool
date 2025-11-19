@@ -1,6 +1,17 @@
 # Company Research CLI
 
-An AI-powered command-line tool that automates company research for job seekers. Built with [Stagehand SDK](https://github.com/browserbase/stagehand) for intelligent browser automation.
+An AI-powered tool that automates company research for job seekers. Built with [Stagehand SDK](https://github.com/browserbase/stagehand) for intelligent browser automation.
+
+## 🎭 Powered by Stagehand
+
+This project showcases **[Stagehand](https://github.com/browserbase/stagehand)** - an AI-native browser automation framework that combines:
+
+- 🤖 **AI Intelligence** - Uses LLMs (Gemini/Claude/GPT) to understand web pages
+- 🎯 **Structured Extraction** - Type-safe data extraction with Zod schemas
+- 🚀 **Playwright Reliability** - Built on proven browser automation
+- 🔄 **Adaptive Automation** - Works across different website layouts
+
+**[📖 Read the Stagehand Deep Dive](./STAGEHAND_DEEP_DIVE.md)** for technical implementation details.
 
 ## Features
 
@@ -10,6 +21,7 @@ An AI-powered command-line tool that automates company research for job seekers.
 - 💻 **Tech Stack** - Programming languages, frameworks, and infrastructure
 - 👥 **Leadership Team** - Executive profiles and bios
 - 📄 **Markdown Reports** - Structured, shareable reports
+- 🌐 **Web Interface** - Beautiful UI for browser-based research
 
 ## Installation
 
@@ -53,6 +65,70 @@ OPENAI_API_KEY=your_key_here
 ```bash
 npm run build
 ```
+
+## How It Works
+
+This tool uses **Stagehand SDK** to automate browser interactions and extract structured data using AI:
+
+```typescript
+// 1. Initialize Stagehand with your preferred LLM
+const stagehand = new Stagehand({
+  env: 'LOCAL',
+  modelName: 'google/gemini-2.0-flash-exp',
+});
+
+// 2. Navigate to company website
+await page.goto('https://stripe.com');
+
+// 3. AI-powered data extraction with type safety
+const companyInfo = await page.extract({
+  instruction: 'Extract company name, mission, and description',
+  schema: CompanyInfoSchema, // Zod schema
+});
+
+// Result: Type-safe, validated company data
+```
+
+### Key Technologies
+
+| Technology | Purpose |
+|------------|---------|
+| **Stagehand SDK** | AI-native browser automation |
+| **Playwright** | Headless browser control |
+| **Zod** | Schema validation & type safety |
+| **Google Gemini** | LLM for content understanding |
+| **Express** | Web server for UI |
+| **TypeScript** | Type safety throughout |
+
+### Research Pipeline
+
+```
+User Input
+    ↓
+┌─────────────────────────────────┐
+│  Stagehand Browser Automation   │
+│  ┌───────────────────────────┐  │
+│  │ 1. Navigate to website    │  │
+│  │ 2. Extract with AI        │  │
+│  │ 3. Validate with Zod      │  │
+│  │ 4. Return typed data      │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+    ↓
+Parallel Extraction (4 concurrent tasks)
+├── Company Info (About page)
+├── Recent News (Newsroom)
+├── Tech Stack (Careers page)
+└── Leadership (About/Team page)
+    ↓
+Markdown Report Generator
+    ↓
+Downloadable Report
+
+```
+
+**Want to understand the implementation in depth?**
+**[📖 Read the complete Stagehand Deep Dive](./STAGEHAND_DEEP_DIVE.md)** (10,000+ words of technical documentation)
 
 ## Usage
 
