@@ -29,7 +29,7 @@ This project showcases **[Stagehand](https://github.com/browserbase/stagehand)**
 
 - Node.js 18+
 - An API key for one of:
-  - [Google Gemini](https://ai.google.dev/) (recommended - fast and cost-effective)
+  - [Google Gemini](https://ai.google.dev/) (recommended - cost-effective)
   - [Anthropic Claude](https://console.anthropic.com/)
   - [OpenAI](https://platform.openai.com/)
 
