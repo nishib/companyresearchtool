@@ -126,7 +126,7 @@ async function retryWithBackoff<T>(
   const {
     maxRetries = 3,
     initialDelay = 1000,
-    maxDelay = 10000,
+    maxDelay = 60000, // Increased to 60 seconds for rate limits
     backoffMultiplier = 2,
     shouldRetry = () => true,
   } = options;
@@ -149,12 +149,24 @@ async function retryWithBackoff<T>(
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.log(
-        `[Retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${errorMessage}. Retrying in ${currentDelay}ms...`
-      );
+      const isRateLimit = errorMessage.includes('429') || 
+                         errorMessage.includes('rate limit') || 
+                         errorMessage.includes('burst rate limit');
+      
+      // Use longer delay for rate limits
+      if (isRateLimit) {
+        currentDelay = extractRateLimitDelay(error);
+        console.log(
+          `[Retry] Rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}). Waiting ${currentDelay / 1000}s before retry...`
+        );
+      } else {
+        console.log(
+          `[Retry] Attempt ${attempt + 1}/${maxRetries + 1} failed: ${errorMessage}. Retrying in ${currentDelay}ms...`
+        );
+        currentDelay = Math.min(currentDelay * backoffMultiplier, maxDelay);
+      }
 
       await delay(currentDelay);
-      currentDelay = Math.min(currentDelay * backoffMultiplier, maxDelay);
     }
   }
 
@@ -167,7 +179,15 @@ function isRetryableError(error: any): boolean {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errorName = error instanceof Error ? error.name : error?.constructor?.name || '';
 
+  // Check for rate limit errors (429)
+  const isRateLimit = errorMessage.includes('429') || 
+                     errorMessage.includes('rate limit') || 
+                     errorMessage.includes('burst rate limit') ||
+                     errorMessage.includes('quota') ||
+                     errorName.includes('RateLimitError');
+
   return (
+    isRateLimit ||
     errorName.includes('ParseError') ||
     errorName.includes('TimeoutError') ||
     errorName.includes('NetworkError') ||
@@ -179,6 +199,21 @@ function isRetryableError(error: any): boolean {
     errorMessage.includes('ETIMEDOUT') ||
     errorMessage.includes('Failed to parse')
   );
+}
+
+function extractRateLimitDelay(error: any): number {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  
+  // Try to extract wait time from error message (e.g., "try again in 39 seconds")
+  const waitMatch = errorMessage.match(/try again in (\d+) seconds?/i);
+  if (waitMatch) {
+    const seconds = parseInt(waitMatch[1], 10);
+    // Add 5 seconds buffer
+    return (seconds + 5) * 1000;
+  }
+  
+  // Default exponential backoff for rate limits
+  return 60000; // 60 seconds default
 }
 
 // Set up unhandled rejection handler for better error tracking
@@ -399,19 +434,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ).join('\n')}`
       : '';
 
-    const markdown = `# ${companyInfo.name || companyName}
+    const markdown = `# ${companyInfo.name ?? companyName}
 
 ## Overview
-${companyInfo.description || 'No description available'}
+${companyInfo.description ?? 'No description available'}
 
 ## Mission
-${companyInfo.mission || 'Not available'}
+${companyInfo.mission ?? 'Not available'}
 
 ## Details
-- **Founded:** ${companyInfo.founded || 'Unknown'}
-- **Headquarters:** ${companyInfo.headquarters || 'Unknown'}
-- **Industry:** ${companyInfo.industry || 'Unknown'}
-- **Website:** ${companyInfo.website || website}
+- **Founded:** ${companyInfo.founded ?? 'Unknown'}
+- **Headquarters:** ${companyInfo.headquarters ?? 'Unknown'}
+- **Industry:** ${companyInfo.industry ?? 'Unknown'}
+- **Website:** ${companyInfo.website ?? website}
 ${competitorsSection}
 
 ---
