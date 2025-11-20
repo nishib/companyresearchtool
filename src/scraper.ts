@@ -53,8 +53,8 @@ export class CompanyResearcher {
     // Priority: Google Gemini > Anthropic Claude > OpenAI GPT
     if (process.env.GOOGLE_API_KEY) {
       return {
-        // Using gemini-1.5-flash (from supported models list)
-        modelName: 'gemini-1.5-flash',
+        // Using gemini-2.0-flash (latest stable Gemini model supported by Stagehand)
+        modelName: 'gemini-2.0-flash',
         modelClientOptions: {
           apiKey: process.env.GOOGLE_API_KEY,
         },
@@ -140,13 +140,11 @@ export class CompanyResearcher {
     try {
       log(`Starting research for: ${companyName}`, 'info');
 
-      // Run all research tasks
-      const [companyInfo, news, techStack, leadership] = await Promise.all([
-        this.extractCompanyInfo(companyName),
-        this.extractNews(companyName),
-        this.extractTechStack(companyName),
-        this.extractLeadership(companyName),
-      ]);
+      // Run research tasks sequentially to avoid navigation conflicts
+      const companyInfo = await this.extractCompanyInfo(companyName);
+      const news = await this.extractNews(companyName);
+      const techStack = await this.extractTechStack(companyName);
+      const leadership = await this.extractLeadership(companyName);
 
       return {
         companyInfo,

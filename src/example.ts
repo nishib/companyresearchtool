@@ -14,7 +14,7 @@ async function main() {
     disablePino: true,
     disableAPI: true, // Force client-side extraction (API mode is unstable)
     model: process.env.GOOGLE_API_KEY ? {
-      modelName: "gemini-1.5-flash", // From supported models list
+      modelName: "gemini-2.0-flash", // Latest stable Gemini model supported by Stagehand
       apiKey: process.env.GOOGLE_API_KEY,
     } : undefined,
   });

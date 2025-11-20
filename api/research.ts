@@ -22,12 +22,12 @@ if (typeof process !== 'undefined') {
 // Schemas
 const CompanyInfoSchema = z.object({
   name: z.string(),
-  mission: z.string().optional(),
-  description: z.string().optional(),
-  founded: z.string().optional(),
-  headquarters: z.string().optional(),
-  industry: z.string().optional(),
-  website: z.string().optional(),
+  mission: z.string().nullish(),
+  description: z.string().nullish(),
+  founded: z.string().nullish(),
+  headquarters: z.string().nullish(),
+  industry: z.string().nullish(),
+  website: z.string().nullish(),
 });
 
 const NewsArticleSchema = z.object({
@@ -63,8 +63,8 @@ function getModelConfig() {
   // Priority: Google Gemini > Anthropic Claude > OpenAI GPT
   if (process.env.GOOGLE_API_KEY) {
     return {
-      // Using gemini-1.5-flash (from supported models list)
-      modelName: 'gemini-1.5-flash',
+      // Using gemini-2.0-flash (latest stable Gemini model supported by Stagehand)
+      modelName: 'gemini-2.0-flash',
       modelClientOptions: {
         apiKey: process.env.GOOGLE_API_KEY,
       },

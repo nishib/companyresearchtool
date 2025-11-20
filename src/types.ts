@@ -3,12 +3,12 @@ import { z } from 'zod';
 // Zod schemas for structured data extraction
 export const CompanyInfoSchema = z.object({
   name: z.string().describe('Official company name'),
-  mission: z.string().describe('Company mission statement or tagline'),
-  description: z.string().describe('Brief company description or about section'),
-  founded: z.string().optional().describe('Year founded'),
-  headquarters: z.string().optional().describe('Headquarters location'),
-  industry: z.string().optional().describe('Industry or sector'),
-  website: z.string().optional().describe('Official website URL'),
+  mission: z.string().nullish().describe('Company mission statement or tagline'),
+  description: z.string().nullish().describe('Brief company description or about section'),
+  founded: z.string().nullish().describe('Year founded'),
+  headquarters: z.string().nullish().describe('Headquarters location'),
+  industry: z.string().nullish().describe('Industry or sector'),
+  website: z.string().nullish().describe('Official website URL'),
 });
 
 export const NewsItemSchema = z.object({

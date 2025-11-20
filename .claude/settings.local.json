@@ -24,7 +24,8 @@
       "Bash(curl:*)",
       "Bash(npm view:*)",
       "Bash(npx tsc)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "WebFetch(domain:ai.google.dev)"
     ],
     "deny": [],
     "ask": []
