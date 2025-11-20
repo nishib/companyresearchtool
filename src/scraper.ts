@@ -258,21 +258,19 @@ export class CompanyResearcher {
     try {
       const page = this.getPage();
 
-      // Navigate to company website
-      const companyWebsite = this.guessCompanyWebsite(companyName);
-      await page.goto(companyWebsite);
-      await delay(3000);
+      // Use current page context (already on company website)
+      await delay(2000);
 
-      // Extract competitors
+      // Extract competitors using LLM knowledge + page context
       let competitorsData;
       try {
         log(`[Extract] Starting competitors extraction for ${companyName}`, 'info');
         competitorsData = await this.stagehand.extract(
-          `Identify the top 5-7 main competitors of ${companyName}. For each competitor, provide:\n` +
-          '- Company name\n' +
-          '- Brief description of what they do (2-3 lines)\n' +
-          '- Website URL if visible\n' +
-          'Look for competitor information in About sections, investor pages, or market comparison content.',
+          `Based on the visible content and your knowledge of ${companyName}, identify 5-7 main competitors in the same industry. For each competitor, provide:\n` +
+          '- Company name (exact official name)\n' +
+          '- Brief description of what they do and how they compete (2-3 lines explaining their products/services)\n' +
+          '- Website URL (if known)\n' +
+          'Use both the page content and your general knowledge of the industry.',
           CompetitorsSchema
         );
         const competitors = competitorsData.competitors || [];

@@ -372,16 +372,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     }
 
-    // Extract competitors
+    // Extract competitors using LLM knowledge + page context
     let competitors: any[] = [];
     try {
       console.log(`[Extract] Starting competitors extraction for ${companyName}`);
       const competitorsData = await stagehand.extract(
-        `Identify the top 5-7 main competitors of ${companyName}. For each competitor, provide:\n` +
-        '- Company name\n' +
-        '- Brief description of what they do (2-3 lines)\n' +
-        '- Website URL if visible\n' +
-        'Look for competitor information in About sections, investor pages, or market comparison content.',
+        `Based on the visible content and your knowledge of ${companyName}, identify 5-7 main competitors in the same industry. For each competitor, provide:\n` +
+        '- Company name (exact official name)\n' +
+        '- Brief description of what they do and how they compete (2-3 lines explaining their products/services)\n' +
+        '- Website URL (if known)\n' +
+        'Use both the page content and your general knowledge of the industry.',
         CompetitorsSchema
       );
       competitors = competitorsData.competitors || [];
