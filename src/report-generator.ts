@@ -4,7 +4,7 @@ import { log, sanitizeFilename, formatDate } from './utils.js';
 
 export class ReportGenerator {
   async generateMarkdown(report: CompanyResearchReport): Promise<string> {
-    const { companyInfo, news, techStack, leadership, researchDate } = report;
+    const { companyInfo, news, techStack, leadership, competitors, researchDate } = report;
 
     let markdown = '';
 
@@ -107,6 +107,24 @@ export class ReportGenerator {
       });
     } else {
       markdown += `*Leadership information not found*\n\n`;
+    }
+
+    markdown += `---\n\n`;
+
+    // Competitors
+    markdown += `## 🏢 Competitors\n\n`;
+    if (competitors.length > 0) {
+      competitors.forEach(competitor => {
+        markdown += `### ${competitor.name}\n\n`;
+        if (competitor.description) {
+          markdown += `${competitor.description}\n\n`;
+        }
+        if (competitor.website) {
+          markdown += `- **Website:** ${competitor.website}\n\n`;
+        }
+      });
+    } else {
+      markdown += `*Competitor information not found*\n\n`;
     }
 
     markdown += `---\n\n`;
