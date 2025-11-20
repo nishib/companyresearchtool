@@ -30,6 +30,16 @@ export const TechStackSchema = z.object({
   infrastructure: z.array(z.string()).describe('Cloud and infrastructure technologies'),
 });
 
+export const CompetitorSchema = z.object({
+  name: z.string().describe('Competitor company name'),
+  description: z.string().nullish().describe('Brief description of what they do'),
+  website: z.string().nullish().describe('Competitor website URL'),
+});
+
+export const CompetitorsSchema = z.object({
+  competitors: z.array(CompetitorSchema).describe('Main competitors of the company'),
+});
+
 export const LeaderSchema = z.object({
   name: z.string().describe('Full name'),
   title: z.string().describe('Job title or position'),
@@ -46,16 +56,19 @@ export type CompanyInfo = z.infer<typeof CompanyInfoSchema>;
 export type NewsItem = z.infer<typeof NewsItemSchema>;
 export type TechStack = z.infer<typeof TechStackSchema>;
 export type Leader = z.infer<typeof LeaderSchema>;
+export type Competitor = z.infer<typeof CompetitorSchema>;
 
-// News and Leadership are arrays of items
+// News, Leadership, and Competitors are arrays of items
 export type News = NewsItem[];
 export type Leadership = Leader[];
+export type Competitors = Competitor[];
 
 export interface CompanyResearchReport {
   companyInfo: CompanyInfo;
   news: News;
   techStack: TechStack;
   leadership: Leadership;
+  competitors: Competitors;
   researchDate: string;
 }
 

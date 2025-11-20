@@ -12,6 +12,8 @@ import {
   TechStackSchema,
   Leadership,
   LeadershipSchema,
+  Competitors,
+  CompetitorsSchema,
   CompanyResearchReport,
 } from './types.js';
 import { log, delay, retryWithBackoff, isRetryableError } from './utils.js';
@@ -142,6 +144,7 @@ export class CompanyResearcher {
 
       // Run research tasks sequentially to avoid navigation conflicts
       const companyInfo = await this.extractCompanyInfo(companyName);
+      const competitors = await this.extractCompetitors(companyName);
       const news = await this.extractNews(companyName);
       const techStack = await this.extractTechStack(companyName);
       const leadership = await this.extractLeadership(companyName);
@@ -151,6 +154,7 @@ export class CompanyResearcher {
         news,
         techStack,
         leadership,
+        competitors,
         researchDate: new Date().toISOString(),
       };
     } catch (error) {
@@ -194,7 +198,15 @@ export class CompanyResearcher {
         companyInfo = await retryWithBackoff(
           async () => {
             return await this.stagehand.extract(
-              'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL from this page. Look for About Us, Company, or similar sections.',
+              'Extract comprehensive company information from this page. Provide detailed answers (at least 4 lines for description and mission when available):\n' +
+              '- Company name (official name)\n' +
+              '- Mission statement (detailed, 4+ lines explaining their purpose and values)\n' +
+              '- Description (comprehensive overview, 4+ lines covering what they do, their products/services, key achievements)\n' +
+              '- Founding year (when the company was established)\n' +
+              '- Headquarters location (city, state/country)\n' +
+              '- Industry (specific industry/sector)\n' +
+              '- Website URL (official website)\n' +
+              'Look for About Us, Company, or similar sections. Provide as much detail as possible.',
               CompanyInfoSchema
             );
           },
@@ -237,6 +249,52 @@ export class CompanyResearcher {
         mission: 'Not found',
         description: 'Not found',
       };
+    }
+  }
+
+  private async extractCompetitors(companyName: string): Promise<Competitors> {
+    log('Extracting competitors...', 'info');
+
+    try {
+      const page = this.getPage();
+
+      // Navigate to company website
+      const companyWebsite = this.guessCompanyWebsite(companyName);
+      await page.goto(companyWebsite);
+      await delay(3000);
+
+      // Extract competitors
+      let competitorsData;
+      try {
+        log(`[Extract] Starting competitors extraction for ${companyName}`, 'info');
+        competitorsData = await this.stagehand.extract(
+          `Identify the top 5-7 main competitors of ${companyName}. For each competitor, provide:\n` +
+          '- Company name\n' +
+          '- Brief description of what they do (2-3 lines)\n' +
+          '- Website URL if visible\n' +
+          'Look for competitor information in About sections, investor pages, or market comparison content.',
+          CompetitorsSchema
+        );
+        const competitors = competitorsData.competitors || [];
+        log(`Extracted ${competitors.length} competitors`, 'success');
+        console.log(`[Extract] Successfully extracted competitors:`, JSON.stringify(competitorsData, null, 2));
+        return competitors.slice(0, 7); // Limit to 7 competitors
+      } catch (extractError) {
+        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
+        log(`Failed to extract competitors: ${errorMessage}`, 'error');
+        console.error(`[Extract] Failed to extract competitors:`, {
+          error: errorMessage,
+          stack: errorStack,
+          companyName,
+          errorType: extractError?.constructor?.name,
+          errorDetails: extractError
+        });
+        throw extractError;
+      }
+    } catch (error) {
+      log(`Failed to extract competitors: ${error}`, 'warn');
+      return [];
     }
   }
 

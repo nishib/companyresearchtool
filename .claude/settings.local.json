@@ -27,7 +27,9 @@
       "Bash(tee:*)",
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:stagehandsdk-3ino14nir-nbs-projects-ccca7cff.vercel.app)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

@@ -59,6 +59,16 @@ const LeadershipSchema = z.object({
   leaders: z.array(LeaderSchema),
 });
 
+const CompetitorSchema = z.object({
+  name: z.string(),
+  description: z.string().nullish(),
+  website: z.string().nullish(),
+});
+
+const CompetitorsSchema = z.object({
+  competitors: z.array(CompetitorSchema),
+});
+
 function getModelConfig() {
   // Priority: Google Gemini > Anthropic Claude > OpenAI GPT
   if (process.env.GOOGLE_API_KEY) {
@@ -300,7 +310,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         async () => {
           // Add timeout wrapper for extraction
           const extractionPromise = stagehand.extract(
-            'Extract the company name, mission statement, description, founding year, headquarters location, industry, and website URL.',
+            'Extract comprehensive company information from this page. Provide detailed answers (at least 4 lines for description and mission when available):\n' +
+            '- Company name (official name)\n' +
+            '- Mission statement (detailed, 4+ lines explaining their purpose and values)\n' +
+            '- Description (comprehensive overview, 4+ lines covering what they do, their products/services, key achievements)\n' +
+            '- Founding year (when the company was established)\n' +
+            '- Headquarters location (city, state/country)\n' +
+            '- Industry (specific industry/sector)\n' +
+            '- Website URL (official website)\n' +
+            'Look for About Us, Company, or similar sections. Provide as much detail as possible.',
             CompanyInfoSchema
           );
 
@@ -354,7 +372,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
     }
 
+    // Extract competitors
+    let competitors: any[] = [];
+    try {
+      console.log(`[Extract] Starting competitors extraction for ${companyName}`);
+      const competitorsData = await stagehand.extract(
+        `Identify the top 5-7 main competitors of ${companyName}. For each competitor, provide:\n` +
+        '- Company name\n' +
+        '- Brief description of what they do (2-3 lines)\n' +
+        '- Website URL if visible\n' +
+        'Look for competitor information in About sections, investor pages, or market comparison content.',
+        CompetitorsSchema
+      );
+      competitors = competitorsData.competitors || [];
+      console.log(`[Extract] Successfully extracted ${competitors.length} competitors`);
+    } catch (error) {
+      console.error(`[Extract] Failed to extract competitors:`, error);
+      competitors = [];
+    }
+
     // Generate simple markdown report
+    const competitorsSection = competitors.length > 0
+      ? `\n## Competitors\n${competitors.map((c: any) =>
+          `\n### ${c.name}\n${c.description || 'No description available'}${c.website ? `\n- Website: ${c.website}` : ''}`
+        ).join('\n')}`
+      : '';
+
     const markdown = `# ${companyInfo.name || companyName}
 
 ## Overview
@@ -368,6 +411,7 @@ ${companyInfo.mission || 'Not available'}
 - **Headquarters:** ${companyInfo.headquarters || 'Unknown'}
 - **Industry:** ${companyInfo.industry || 'Unknown'}
 - **Website:** ${companyInfo.website || website}
+${competitorsSection}
 
 ---
 *Research generated on ${new Date().toISOString().split('T')[0]}*
@@ -379,6 +423,7 @@ ${companyInfo.mission || 'Not available'}
       markdown,
       report: {
         companyInfo,
+        competitors,
         researchDate: new Date().toISOString(),
       },
     });
