@@ -63,7 +63,8 @@ function getModelConfig() {
   // Priority: Google Gemini > Anthropic Claude > OpenAI GPT
   if (process.env.GOOGLE_API_KEY) {
     return {
-      modelName: 'google/gemini-2.0-flash-exp',
+      // Using gemini-1.5-flash (from supported models list)
+      modelName: 'gemini-1.5-flash',
       modelClientOptions: {
         apiKey: process.env.GOOGLE_API_KEY,
       },
@@ -226,6 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     apiKey: process.env.BROWSERBASE_API_KEY,
     projectId: process.env.BROWSERBASE_PROJECT_ID,
     disablePino: true,
+    disableAPI: true, // Force client-side extraction (API mode is unstable)
     model: modelConfig.modelName ? {
       ...modelConfig.modelClientOptions,
       modelName: modelConfig.modelName,
@@ -251,14 +253,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Extract company info
     try {
       console.log(`[Stagehand] Navigating to ${website}...`);
-      await page.goto(website, {
-        timeoutMs: 60000, // 60 second timeout for navigation
-        waitUntil: 'domcontentloaded' // Don't wait for all resources to load
-      });
+
+      // Use networkidle to handle page redirects properly
+      try {
+        await page.goto(website, {
+          waitUntil: 'networkidle',
+          timeoutMs: 60000,
+        });
+      } catch (navError) {
+        // If navigation fails, try with domcontentloaded instead
+        console.log('[Stagehand] Network idle failed, trying domcontentloaded...');
+        await page.goto(website, {
+          waitUntil: 'domcontentloaded',
+          timeoutMs: 60000,
+        });
+      }
       console.log(`[Stagehand] Navigation to ${website} completed`);
       
       // Wait for page to settle (JavaScript execution, dynamic content)
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
       // Verify page loaded successfully
       const pageTitle = await page.title().catch(() => 'Unknown');

@@ -12,8 +12,9 @@ async function main() {
     apiKey: process.env.BROWSERBASE_API_KEY,
     projectId: process.env.BROWSERBASE_PROJECT_ID,
     disablePino: true,
+    disableAPI: true, // Force client-side extraction (API mode is unstable)
     model: process.env.GOOGLE_API_KEY ? {
-      modelName: "google/gemini-2.0-flash-exp",
+      modelName: "gemini-1.5-flash", // From supported models list
       apiKey: process.env.GOOGLE_API_KEY,
     } : undefined,
   });

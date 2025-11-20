@@ -37,6 +37,7 @@ export class CompanyResearcher {
       apiKey: process.env.BROWSERBASE_API_KEY,
       projectId: process.env.BROWSERBASE_PROJECT_ID,
       disablePino: true,
+      disableAPI: true, // Force client-side extraction (API mode is unstable)
       model: modelConfig.modelName ? {
         ...modelConfig.modelClientOptions,
         modelName: modelConfig.modelName,
@@ -52,7 +53,8 @@ export class CompanyResearcher {
     // Priority: Google Gemini > Anthropic Claude > OpenAI GPT
     if (process.env.GOOGLE_API_KEY) {
       return {
-        modelName: 'google/gemini-2.0-flash-exp',
+        // Using gemini-1.5-flash (from supported models list)
+        modelName: 'gemini-1.5-flash',
         modelClientOptions: {
           apiKey: process.env.GOOGLE_API_KEY,
         },
@@ -168,8 +170,23 @@ export class CompanyResearcher {
       // Navigate directly to the company website
       const companyWebsite = this.guessCompanyWebsite(companyName);
       log(`Navigating to ${companyWebsite}...`, 'info');
-      await page.goto(companyWebsite);
-      await delay(3000);
+
+      // Use waitUntil to handle page redirects properly
+      try {
+        await page.goto(companyWebsite, {
+          waitUntil: 'networkidle',
+          timeoutMs: 30000,
+        });
+      } catch (navError) {
+        // If navigation fails, try with domcontentloaded instead
+        log('Network idle failed, trying domcontentloaded...', 'warn');
+        await page.goto(companyWebsite, {
+          waitUntil: 'domcontentloaded',
+          timeoutMs: 30000,
+        });
+      }
+
+      await delay(5000); // Extra wait for dynamic content
 
       // Extract company information from the website with retry logic
       let companyInfo;
@@ -208,7 +225,14 @@ export class CompanyResearcher {
         throw extractError; // Re-throw to be caught by outer catch
       }
     } catch (error) {
-      log(`Failed to extract company info: ${error}`, 'warn');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      log(`Failed to extract company info (outer catch): ${errorMessage}`, 'error');
+      console.error(`[Extract] Outer error catch:`, {
+        error: errorMessage,
+        stack: errorStack,
+        errorType: error?.constructor?.name,
+      });
       // Return minimal info if extraction fails
       return {
         name: companyName,
