@@ -233,53 +233,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   try {
-    console.log(`[Stagehand] V3 initialized (no explicit init() needed)`);
-    
-    // Wait for context to be available (may take a moment in serverless)
-    let page;
-    let attempts = 0;
-    const maxAttempts = 20; // Increased to 20 attempts (10 seconds total)
-    
-    while (!page && attempts < maxAttempts) {
-      try {
-        // Use optional chaining to safely access context
-        const pages = stagehand.context?.pages();
-        if (pages && Array.isArray(pages) && pages.length > 0) {
-          page = pages[0];
-          break;
-        }
-      } catch (contextError) {
-        // Context might throw an error if not ready yet
-        console.log(`[Stagehand] Context not ready yet: ${contextError instanceof Error ? contextError.message : String(contextError)}`);
-      }
-      
-      attempts++;
-      if (attempts < maxAttempts) {
-        console.log(`[Stagehand] Waiting for context... (attempt ${attempts}/${maxAttempts})`);
-        await delay(500); // Wait 500ms between attempts
-      }
+    // Initialize Stagehand (required in V3)
+    console.log(`[Stagehand] Calling stagehand.init()...`);
+    await stagehand.init();
+    console.log(`[Stagehand] Initialization successful`);
+
+    // Get the first page from context (available after init)
+    const pages = stagehand.context.pages();
+    if (!pages || pages.length === 0) {
+      throw new Error('No page available in Stagehand context after init()');
     }
-    
-    if (!page) {
-      // Log diagnostic information
-      console.error('[Stagehand] Context diagnostic:', {
-        hasContext: !!stagehand.context,
-        contextType: typeof stagehand.context,
-        contextKeys: stagehand.context ? Object.keys(stagehand.context) : [],
-        hasPages: stagehand.context ? (() => {
-          try {
-            const pages = stagehand.context?.pages();
-            return Array.isArray(pages) ? pages.length : 'not an array';
-          } catch (e) {
-            return `error: ${e instanceof Error ? e.message : String(e)}`;
-          }
-        })() : 'no context',
-        browserbaseSessionID: stagehand.browserbaseSessionID,
-        stagehandKeys: Object.keys(stagehand).filter(k => !k.startsWith('_')),
-      });
-      throw new Error('No page available in Stagehand context after waiting. Context may not be initialized properly.');
-    }
-    
+    const page = pages[0];
     console.log(`[Stagehand] Page obtained successfully`);
     const website = guessCompanyWebsite(companyName);
     console.log(`[Stagehand] Navigating to ${website}...`);

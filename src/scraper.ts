@@ -106,7 +106,9 @@ export class CompanyResearcher {
   }
 
   async initialize(): Promise<void> {
-    // V3 doesn't need explicit init() - initialization happens in constructor
+    // Initialize Stagehand (required in V3)
+    await this.stagehand.init();
+
     if (this.verbose) {
       log('Stagehand initialized successfully', 'success');
 
@@ -122,37 +124,14 @@ export class CompanyResearcher {
   }
 
   /**
-   * Get the active page from Stagehand context with retry logic
+   * Get the active page from Stagehand context
    */
-  private async getPage(): Promise<any> {
-    let page;
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    while (!page && attempts < maxAttempts) {
-      try {
-        const pages = this.stagehand.context?.pages();
-        if (pages && Array.isArray(pages) && pages.length > 0) {
-          page = pages[0];
-          break;
-        }
-      } catch (contextError) {
-        if (this.verbose) {
-          log(`Context not ready yet (attempt ${attempts + 1}/${maxAttempts})`, 'warn');
-        }
-      }
-
-      attempts++;
-      if (attempts < maxAttempts) {
-        await delay(500);
-      }
+  private getPage(): any {
+    const pages = this.stagehand.context.pages();
+    if (!pages || pages.length === 0) {
+      throw new Error('No page available in Stagehand context. Make sure initialize() was called.');
     }
-
-    if (!page) {
-      throw new Error('No page available in Stagehand context after waiting');
-    }
-
-    return page;
+    return pages[0];
   }
 
   async research(companyName: string): Promise<CompanyResearchReport> {
@@ -184,7 +163,7 @@ export class CompanyResearcher {
     log('Extracting company information...', 'info');
 
     try {
-      const page = await this.getPage();
+      const page = this.getPage();
 
       // Navigate directly to the company website
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -243,7 +222,7 @@ export class CompanyResearcher {
     log('Extracting recent news...', 'info');
 
     try {
-      const page = await this.getPage();
+      const page = this.getPage();
 
       // Navigate to company newsroom or blog
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -285,7 +264,7 @@ export class CompanyResearcher {
     log('Detecting tech stack...', 'info');
 
     try {
-      const page = await this.getPage();
+      const page = this.getPage();
 
       // Navigate to company careers page
       const companyWebsite = this.guessCompanyWebsite(companyName);
@@ -332,7 +311,7 @@ export class CompanyResearcher {
     log('Extracting leadership information...', 'info');
 
     try {
-      const page = await this.getPage();
+      const page = this.getPage();
 
       // Navigate to company about/team page
       const companyWebsite = this.guessCompanyWebsite(companyName);

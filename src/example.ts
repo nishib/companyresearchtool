@@ -18,37 +18,20 @@ async function main() {
     } : undefined,
   });
 
-  // V3 doesn't need explicit init()
+  // Initialize Stagehand (required in V3)
+  await stagehand.init();
+
   console.log(`\n✓ Stagehand Session Started (${env} mode)`);
   if (stagehand.browserbaseSessionID) {
     console.log(`Watch live: https://browserbase.com/sessions/${stagehand.browserbaseSessionID}\n`);
   }
 
-  // Wait for context to be available and get the first page
-  let page;
-  let attempts = 0;
-  const maxAttempts = 20;
-
-  while (!page && attempts < maxAttempts) {
-    try {
-      const pages = stagehand.context?.pages();
-      if (pages && Array.isArray(pages) && pages.length > 0) {
-        page = pages[0];
-        break;
-      }
-    } catch (contextError) {
-      console.log(`Context not ready yet (attempt ${attempts + 1}/${maxAttempts})`);
-    }
-
-    attempts++;
-    if (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+  // Get the first page from context (available after init)
+  const pages = stagehand.context.pages();
+  if (!pages || pages.length === 0) {
+    throw new Error('No page available in Stagehand context');
   }
-
-  if (!page) {
-    throw new Error('No page available in Stagehand context after waiting');
-  }
+  const page = pages[0];
 
   // Example 1: Navigate and extract
   console.log("1️⃣ Navigating to Stagehand.dev...");
