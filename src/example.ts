@@ -24,10 +24,30 @@ async function main() {
     console.log(`Watch live: https://browserbase.com/sessions/${stagehand.browserbaseSessionID}\n`);
   }
 
-  // Get the page from context
-  const page = stagehand.context.pages()[0];
+  // Wait for context to be available and get the first page
+  let page;
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  while (!page && attempts < maxAttempts) {
+    try {
+      const pages = stagehand.context?.pages();
+      if (pages && Array.isArray(pages) && pages.length > 0) {
+        page = pages[0];
+        break;
+      }
+    } catch (contextError) {
+      console.log(`Context not ready yet (attempt ${attempts + 1}/${maxAttempts})`);
+    }
+
+    attempts++;
+    if (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
   if (!page) {
-    throw new Error('No page available in Stagehand context');
+    throw new Error('No page available in Stagehand context after waiting');
   }
 
   // Example 1: Navigate and extract
