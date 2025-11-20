@@ -220,6 +220,34 @@ export class CompanyResearcher {
 
         log('Company information extracted', 'success');
         console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
+
+        // Fill in missing fields using pure LLM knowledge
+        if (!companyInfo.founded || !companyInfo.headquarters || !companyInfo.industry || !companyInfo.description) {
+          log('Some fields missing, using LLM knowledge to fill gaps...', 'info');
+          try {
+            const knowledgeFill = await this.stagehand.extract(
+              `You are a research assistant. Based ONLY on your general knowledge about ${companyName}, provide:\n\n` +
+              `- founded: The year ${companyName} was founded (just the year, e.g., "2021")\n` +
+              `- headquarters: The city and state/country of ${companyName}'s headquarters (e.g., "San Francisco, California")\n` +
+              `- industry: The specific industry/sector ${companyName} operates in (e.g., "Browser Automation", "AI Safety", "E-commerce")\n` +
+              `- description: A comprehensive 4-6 sentence description of what ${companyName} does, their products/services, and market position\n\n` +
+              `Use your training data knowledge. Do NOT return null or empty strings.`,
+              CompanyInfoSchema
+            );
+
+            // Fill only the missing fields
+            companyInfo.founded = companyInfo.founded || knowledgeFill.founded;
+            companyInfo.headquarters = companyInfo.headquarters || knowledgeFill.headquarters;
+            companyInfo.industry = companyInfo.industry || knowledgeFill.industry;
+            companyInfo.description = companyInfo.description || knowledgeFill.description;
+
+            log('Filled missing fields with LLM knowledge', 'success');
+            console.log(`[Extract] Final data after fill:`, JSON.stringify(companyInfo, null, 2));
+          } catch (fillError) {
+            log(`Failed to fill missing fields: ${fillError}`, 'warn');
+          }
+        }
+
         return companyInfo;
       } catch (extractError) {
         const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);

@@ -373,11 +373,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
 
       console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
+
+      // Fill in missing fields using pure LLM knowledge
+      if (!companyInfo.founded || !companyInfo.headquarters || !companyInfo.industry || !companyInfo.description) {
+        console.log(`[Extract] Some fields missing, using LLM knowledge to fill gaps...`);
+        try {
+          const knowledgeFill = await stagehand.extract(
+            `You are a research assistant. Based ONLY on your general knowledge about ${companyName}, provide:\n\n` +
+            `- founded: The year ${companyName} was founded (just the year, e.g., "2021")\n` +
+            `- headquarters: The city and state/country of ${companyName}'s headquarters (e.g., "San Francisco, California")\n` +
+            `- industry: The specific industry/sector ${companyName} operates in (e.g., "Browser Automation", "AI Safety", "E-commerce")\n` +
+            `- description: A comprehensive 4-6 sentence description of what ${companyName} does, their products/services, and market position\n\n` +
+            `Use your training data knowledge. Do NOT return null or empty strings.`,
+            CompanyInfoSchema
+          );
+
+          // Fill only the missing fields
+          companyInfo.founded = companyInfo.founded || knowledgeFill.founded;
+          companyInfo.headquarters = companyInfo.headquarters || knowledgeFill.headquarters;
+          companyInfo.industry = companyInfo.industry || knowledgeFill.industry;
+          companyInfo.description = companyInfo.description || knowledgeFill.description;
+
+          console.log(`[Extract] Filled missing fields:`, JSON.stringify(companyInfo, null, 2));
+        } catch (fillError) {
+          console.error(`[Extract] Failed to fill missing fields:`, fillError);
+        }
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       const errorName = error instanceof Error ? error.name : error?.constructor?.name || 'UnknownError';
-      
+
       // Enhanced error logging
       console.error(`[Extract] Failed to extract company info after retries:`, {
         error: errorMessage,
@@ -434,6 +460,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ).join('\n')}`
       : '';
 
+    // Use clean website URL (the guessed one, not the extracted one which might be a test URL)
+    const cleanWebsite = website.replace(/\/en\/.*$/, '').replace(/\/$/, '');
+
     const markdown = `# ${companyInfo.name ?? companyName}
 
 ## Overview
@@ -446,7 +475,7 @@ ${companyInfo.mission ?? 'Not available'}
 - **Founded:** ${companyInfo.founded ?? 'Unknown'}
 - **Headquarters:** ${companyInfo.headquarters ?? 'Unknown'}
 - **Industry:** ${companyInfo.industry ?? 'Unknown'}
-- **Website:** ${companyInfo.website ?? website}
+- **Website:** ${cleanWebsite}
 ${competitorsSection}
 
 ---
