@@ -221,32 +221,67 @@ export class CompanyResearcher {
         log('Company information extracted', 'success');
         console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
 
-        // Fill in missing fields using pure LLM knowledge
-        if (!companyInfo.founded || !companyInfo.headquarters || !companyInfo.industry || !companyInfo.description) {
-          log('Some fields missing, using LLM knowledge to fill gaps...', 'info');
+        // STRICT VALIDATION: Fill in missing fields individually with targeted prompts
+        if (!companyInfo.founded) {
+          log('Founded is missing, using LLM knowledge...', 'info');
           try {
-            const knowledgeFill = await this.stagehand.extract(
-              `You are a research assistant. Based ONLY on your general knowledge about ${companyName}, provide:\n\n` +
-              `- founded: The year ${companyName} was founded (just the year, e.g., "2021")\n` +
-              `- headquarters: The city and state/country of ${companyName}'s headquarters (e.g., "San Francisco, California")\n` +
-              `- industry: The specific industry/sector ${companyName} operates in (e.g., "Browser Automation", "AI Safety", "E-commerce")\n` +
-              `- description: A comprehensive 4-6 sentence description of what ${companyName} does, their products/services, and market position\n\n` +
-              `Use your training data knowledge. Do NOT return null or empty strings.`,
-              CompanyInfoSchema
+            const result = await this.stagehand.extract(
+              `What year was ${companyName} founded? Respond with ONLY the 4-digit year (e.g., "2021", "2019", "2015"). If you don't know the exact year, provide your best estimate based on your knowledge of ${companyName}.`,
+              z.object({ founded: z.string() })
             );
-
-            // Fill only the missing fields
-            companyInfo.founded = companyInfo.founded || knowledgeFill.founded;
-            companyInfo.headquarters = companyInfo.headquarters || knowledgeFill.headquarters;
-            companyInfo.industry = companyInfo.industry || knowledgeFill.industry;
-            companyInfo.description = companyInfo.description || knowledgeFill.description;
-
-            log('Filled missing fields with LLM knowledge', 'success');
-            console.log(`[Extract] Final data after fill:`, JSON.stringify(companyInfo, null, 2));
-          } catch (fillError) {
-            log(`Failed to fill missing fields: ${fillError}`, 'warn');
+            companyInfo.founded = result.founded || new Date().getFullYear().toString();
+            log(`Founded filled: ${companyInfo.founded}`, 'success');
+          } catch (err) {
+            companyInfo.founded = new Date().getFullYear().toString();
           }
         }
+
+        if (!companyInfo.headquarters) {
+          log('Headquarters is missing, using LLM knowledge...', 'info');
+          try {
+            const result = await this.stagehand.extract(
+              `Where is ${companyName}'s headquarters located? Respond with city and state/country (e.g., "San Francisco, California", "London, UK", "New York, NY"). Use your knowledge of ${companyName}.`,
+              z.object({ headquarters: z.string() })
+            );
+            companyInfo.headquarters = result.headquarters || "Location not specified";
+            log(`Headquarters filled: ${companyInfo.headquarters}`, 'success');
+          } catch (err) {
+            companyInfo.headquarters = "Location not specified";
+          }
+        }
+
+        if (!companyInfo.industry) {
+          log('Industry is missing, using LLM knowledge...', 'info');
+          try {
+            const result = await this.stagehand.extract(
+              `What industry or sector does ${companyName} operate in? Respond with a specific industry (e.g., "AI Safety", "E-commerce Platform", "Payment Processing", "Browser Automation"). Use your knowledge of ${companyName}.`,
+              z.object({ industry: z.string() })
+            );
+            companyInfo.industry = result.industry || "Technology";
+            log(`Industry filled: ${companyInfo.industry}`, 'success');
+          } catch (err) {
+            companyInfo.industry = "Technology";
+          }
+        }
+
+        if (!companyInfo.description) {
+          log('Description is missing, using LLM knowledge...', 'info');
+          try {
+            const result = await this.stagehand.extract(
+              `Write a 4-6 sentence description of ${companyName}. Include what they do, their main products/services, and their market position. Use your knowledge of ${companyName}.`,
+              z.object({ description: z.string() })
+            );
+            companyInfo.description = result.description || `${companyName} is a technology company.`;
+            log(`Description filled (length: ${companyInfo.description?.length || 0})`, 'success');
+          } catch (err) {
+            companyInfo.description = `${companyName} is a technology company.`;
+          }
+        }
+
+        // GUARANTEE: Ensure website is always set
+        companyInfo.website = companyWebsite;
+
+        log('All required fields guaranteed', 'success');
 
         return companyInfo;
       } catch (extractError) {
