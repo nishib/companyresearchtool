@@ -198,15 +198,15 @@ export class CompanyResearcher {
         companyInfo = await retryWithBackoff(
           async () => {
             return await this.stagehand.extract(
-              'Extract comprehensive company information from this page. Provide detailed answers (at least 4 lines for description and mission when available):\n' +
-              '- Company name (official name)\n' +
-              '- Mission statement (detailed, 4+ lines explaining their purpose and values)\n' +
-              '- Description (comprehensive overview, 4+ lines covering what they do, their products/services, key achievements)\n' +
-              '- Founding year (when the company was established)\n' +
-              '- Headquarters location (city, state/country)\n' +
-              '- Industry (specific industry/sector)\n' +
-              '- Website URL (official website)\n' +
-              'Look for About Us, Company, or similar sections. Provide as much detail as possible.',
+              `Extract comprehensive information about ${companyName} from this page. Use BOTH the visible page content AND your general knowledge about the company to provide complete information:\n\n` +
+              '1. Company name - Official company name\n' +
+              '2. Mission statement - Detailed mission (4+ sentences explaining their purpose, values, and goals)\n' +
+              '3. Description - Comprehensive overview (4+ sentences covering what they do, their main products/services, key achievements, and market position)\n' +
+              '4. Founded - Year the company was established (use your knowledge if not on page)\n' +
+              '5. Headquarters - City and country/state location (use your knowledge if not on page)\n' +
+              '6. Industry - Specific industry/sector (use your knowledge if not on page)\n' +
+              '7. Website - Official website URL\n\n' +
+              'IMPORTANT: Combine page content with your general knowledge to provide complete, detailed information. Do not leave fields empty if you know the information.',
               CompanyInfoSchema
             );
           },

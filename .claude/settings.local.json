@@ -29,7 +29,8 @@
       "WebFetch(domain:stagehandsdk-3ino14nir-nbs-projects-ccca7cff.vercel.app)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(timeout 120 npx tsx:*)"
     ],
     "deny": [],
     "ask": []
