@@ -25,7 +25,9 @@
       "Bash(npm view:*)",
       "Bash(npx tsc)",
       "Bash(tee:*)",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:stagehandsdk-3ino14nir-nbs-projects-ccca7cff.vercel.app)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
