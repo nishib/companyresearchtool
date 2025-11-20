@@ -18,9 +18,8 @@ export class ReportGenerator {
     markdown += `**Mission:** ${companyInfo.mission}\n\n`;
     markdown += `${companyInfo.description}\n\n`;
 
-    if (companyInfo.founded || companyInfo.headquarters || companyInfo.industry) {
+    if (companyInfo.headquarters || companyInfo.industry || companyInfo.website) {
       markdown += `### Key Facts\n\n`;
-      if (companyInfo.founded) markdown += `- **Founded:** ${companyInfo.founded}\n`;
       if (companyInfo.headquarters) markdown += `- **Headquarters:** ${companyInfo.headquarters}\n`;
       if (companyInfo.industry) markdown += `- **Industry:** ${companyInfo.industry}\n`;
       if (companyInfo.website) markdown += `- **Website:** ${companyInfo.website}\n`;

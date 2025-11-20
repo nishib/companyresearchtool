@@ -203,11 +203,10 @@ export class CompanyResearcher {
               `- name: "${companyName}" or official name from page\n` +
               `- description: Write 4-6 sentences describing what ${companyName} does, their products/services, market position, and key achievements. Use page content + your knowledge of the company.\n` +
               `- mission: Write 4-6 sentences about ${companyName}'s mission, purpose, values and goals. Use page content + your knowledge.\n` +
-              `- founded: Year established (check your knowledge of when ${companyName} was founded)\n` +
               `- headquarters: City and country/state (check your knowledge of ${companyName}'s headquarters)\n` +
               `- industry: Specific sector (e.g., "AI Safety", "E-commerce Platform", "Payment Processing")\n` +
               `- website: Official URL\n\n` +
-              `CRITICAL: For well-known companies like ${companyName}, you likely know their founding year, headquarters, and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
+              `CRITICAL: For well-known companies like ${companyName}, you likely know their headquarters and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
               CompanyInfoSchema
             );
           },
@@ -222,20 +221,6 @@ export class CompanyResearcher {
         console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
 
         // STRICT VALIDATION: Fill in missing fields individually with targeted prompts
-        if (!companyInfo.founded) {
-          log('Founded is missing, using LLM knowledge...', 'info');
-          try {
-            const result = await this.stagehand.extract(
-              `What year was ${companyName} founded? Respond with ONLY the 4-digit year (e.g., "2021", "2019", "2015"). If you don't know the exact year, provide your best estimate based on your knowledge of ${companyName}.`,
-              z.object({ founded: z.string() })
-            );
-            companyInfo.founded = result.founded || new Date().getFullYear().toString();
-            log(`Founded filled: ${companyInfo.founded}`, 'success');
-          } catch (err) {
-            companyInfo.founded = new Date().getFullYear().toString();
-          }
-        }
-
         if (!companyInfo.headquarters) {
           log('Headquarters is missing, using LLM knowledge...', 'info');
           try {

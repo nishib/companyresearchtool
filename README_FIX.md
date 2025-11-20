@@ -71,7 +71,6 @@ With working API keys, you should now see:
     "name": "Shopify",
     "mission": "Make commerce better for everyone",
     "description": "E-commerce platform...",
-    "founded": "2006",
     "headquarters": "Ottawa, Canada",
     "industry": "E-commerce"
   },

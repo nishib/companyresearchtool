@@ -195,7 +195,6 @@ and steerable AI systems...
 
 ### Key Facts
 
-- **Founded:** 2021
 - **Headquarters:** San Francisco, CA
 - **Industry:** Artificial Intelligence
 - **Website:** https://anthropic.com

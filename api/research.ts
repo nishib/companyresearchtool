@@ -24,7 +24,6 @@ const CompanyInfoSchema = z.object({
   name: z.string(),
   mission: z.string().nullish(),
   description: z.string().nullish(),
-  founded: z.string().nullish(),
   headquarters: z.string().nullish(),
   industry: z.string().nullish(),
   website: z.string().nullish(),
@@ -350,11 +349,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             `- name: "${companyName}" or official name from page\n` +
             `- description: Write 4-6 sentences describing what ${companyName} does, their products/services, market position, and key achievements. Use page content + your knowledge of the company.\n` +
             `- mission: Write 4-6 sentences about ${companyName}'s mission, purpose, values and goals. Use page content + your knowledge.\n` +
-            `- founded: Year established (check your knowledge of when ${companyName} was founded)\n` +
             `- headquarters: City and country/state (check your knowledge of ${companyName}'s headquarters)\n` +
             `- industry: Specific sector (e.g., "AI Safety", "E-commerce Platform", "Payment Processing")\n` +
             `- website: Official URL\n\n` +
-            `CRITICAL: For well-known companies like ${companyName}, you likely know their founding year, headquarters, and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
+            `CRITICAL: For well-known companies like ${companyName}, you likely know their headquarters and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
             CompanyInfoSchema
           );
 
@@ -376,20 +374,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // STRICT VALIDATION: Fill in missing fields using pure LLM knowledge
       // Check each field individually and fill with increasingly strict prompts
-
-      if (!companyInfo.founded) {
-        console.log(`[Extract] Founded is missing, using LLM knowledge...`);
-        try {
-          const result = await stagehand.extract(
-            `What year was ${companyName} founded? Respond with ONLY the 4-digit year (e.g., "2021", "2019", "2015"). If you don't know the exact year, provide your best estimate based on your knowledge of ${companyName}.`,
-            z.object({ founded: z.string() })
-          );
-          companyInfo.founded = result.founded || new Date().getFullYear().toString();
-          console.log(`[Extract] Founded filled: ${companyInfo.founded}`);
-        } catch (err) {
-          companyInfo.founded = new Date().getFullYear().toString();
-        }
-      }
 
       if (!companyInfo.headquarters) {
         console.log(`[Extract] Headquarters is missing, using LLM knowledge...`);
@@ -437,7 +421,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       companyInfo.website = website.replace(/\/en\/.*$/, '').replace(/\/$/, '');
 
       console.log(`[Extract] Final guaranteed data:`, JSON.stringify({
-        founded: companyInfo.founded,
         headquarters: companyInfo.headquarters,
         industry: companyInfo.industry,
         hasDescription: !!companyInfo.description,
@@ -471,7 +454,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: companyName,
         mission: 'Not found',
         description: 'Not found',
-        founded: undefined,
         headquarters: undefined,
         industry: undefined,
         website: undefined
@@ -516,7 +498,6 @@ ${companyInfo.description ?? 'No description available'}
 ${companyInfo.mission ?? 'Not available'}
 
 ## Details
-- **Founded:** ${companyInfo.founded ?? 'Unknown'}
 - **Headquarters:** ${companyInfo.headquarters ?? 'Unknown'}
 - **Industry:** ${companyInfo.industry ?? 'Unknown'}
 - **Website:** ${cleanWebsite}

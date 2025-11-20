@@ -5,7 +5,6 @@ export const CompanyInfoSchema = z.object({
   name: z.string().describe('Official company name'),
   mission: z.string().nullish().describe('Company mission statement or tagline'),
   description: z.string().nullish().describe('Brief company description or about section'),
-  founded: z.string().nullish().describe('Year founded'),
   headquarters: z.string().nullish().describe('Headquarters location'),
   industry: z.string().nullish().describe('Industry or sector'),
   website: z.string().nullish().describe('Official website URL'),

@@ -72,7 +72,6 @@ The tool automatically gathers:
    - Official name
    - Mission statement
    - Company description
-   - Founded year
    - Headquarters location
    - Industry/sector
 

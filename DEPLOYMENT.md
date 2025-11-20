@@ -1,18 +1,16 @@
 # Deployment Instructions
 
-## ✅ Browserbase Configuration - VERIFIED CORRECT
+## ✅ Browserbase Configuration
 
-Your Browserbase credentials have been configured and verified:
-- **Project ID:** `2e86d427-3318-4596-b36f-b6c48d1065a2`
-- **API Key:** `bb_live_VvIWhQXbsAF8NEhoo6q_CE_vKNM`
+Your Browserbase credentials are configured in your `.env` file.
 
 ## How Browserbase Works in Your Project
 
 ### Local Development (.env file)
 ```bash
-GOOGLE_API_KEY=AIzaSyDvYzCouetDOVfqkjcYzEqF1515Sc5anWI
-BROWSERBASE_API_KEY=bb_live_VvIWhQXbsAF8NEhoo6q_CE_vKNM
-BROWSERBASE_PROJECT_ID=2e86d427-3318-4596-b36f-b6c48d1065a2
+GOOGLE_API_KEY=your_google_api_key_here
+BROWSERBASE_API_KEY=your_browserbase_api_key_here
+BROWSERBASE_PROJECT_ID=your_browserbase_project_id_here
 ```
 
 ### Code Implementation (api/research.ts)
@@ -59,19 +57,19 @@ Go to your Vercel project dashboard:
 #### 1. Google Gemini API Key
 ```
 Name:  GOOGLE_API_KEY
-Value: AIzaSyDvYzCouetDOVfqkjcYzEqF1515Sc5anWI
+Value: <your_google_api_key_from_.env_file>
 ```
 
 #### 2. Browserbase API Key
 ```
 Name:  BROWSERBASE_API_KEY
-Value: bb_live_VvIWhQXbsAF8NEhoo6q_CE_vKNM
+Value: <your_browserbase_api_key_from_.env_file>
 ```
 
 #### 3. Browserbase Project ID
 ```
 Name:  BROWSERBASE_PROJECT_ID
-Value: 2e86d427-3318-4596-b36f-b6c48d1065a2
+Value: <your_browserbase_project_id_from_.env_file>
 ```
 
 **For each variable:**
@@ -115,7 +113,7 @@ Visit: `https://companyresearchtool.vercel.app/`
 
 Check Vercel function logs or Browserbase dashboard:
 - You should see browser sessions being created
-- Sessions will have your project ID: `2e86d427-3318-4596-b36f-b6c48d1065a2`
+- Sessions will have your Browserbase project ID
 - You can watch live sessions at: `https://browserbase.com/sessions/{session-id}`
 
 ---
