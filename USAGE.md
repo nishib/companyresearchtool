@@ -87,10 +87,10 @@ The tool automatically gathers:
    - Development tools
    - Infrastructure technologies
 
-4. **Leadership Team**
-   - Names and titles
-   - Brief biographies
-   - LinkedIn profiles (when available)
+4. **Competitors**
+   - Main competitor names
+   - Brief descriptions
+   - Competitor websites
 
 ## Tips for Best Results
 

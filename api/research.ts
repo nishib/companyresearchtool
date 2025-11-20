@@ -47,17 +47,6 @@ const TechStackSchema = z.object({
   infrastructure: z.array(z.string()).optional(),
 });
 
-const LeaderSchema = z.object({
-  name: z.string(),
-  title: z.string(),
-  bio: z.string().optional(),
-  linkedin: z.string().optional(),
-});
-
-const LeadershipSchema = z.object({
-  leaders: z.array(LeaderSchema),
-});
-
 const CompetitorSchema = z.object({
   name: z.string(),
   description: z.string().nullish(),

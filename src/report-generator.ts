@@ -4,7 +4,7 @@ import { log, sanitizeFilename, formatDate } from './utils.js';
 
 export class ReportGenerator {
   async generateMarkdown(report: CompanyResearchReport): Promise<string> {
-    const { companyInfo, news, techStack, leadership, competitors, researchDate } = report;
+    const { companyInfo, news, techStack, competitors, researchDate } = report;
 
     let markdown = '';
 
@@ -87,25 +87,6 @@ export class ReportGenerator {
       techStack.infrastructure.length === 0
     ) {
       markdown += `*Tech stack information not found*\n\n`;
-    }
-
-    markdown += `---\n\n`;
-
-    // Leadership
-    markdown += `## 👥 Leadership Team\n\n`;
-    if (leadership.length > 0) {
-      leadership.forEach(leader => {
-        markdown += `### ${leader.name}\n\n`;
-        markdown += `**${leader.title}**\n\n`;
-        if (leader.bio) {
-          markdown += `${leader.bio}\n\n`;
-        }
-        if (leader.linkedin) {
-          markdown += `[LinkedIn Profile](${leader.linkedin})\n\n`;
-        }
-      });
-    } else {
-      markdown += `*Leadership information not found*\n\n`;
     }
 
     markdown += `---\n\n`;

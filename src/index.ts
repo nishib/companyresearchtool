@@ -88,7 +88,7 @@ program
             `  ✓ Tech stack (${report.techStack.languages.length + report.techStack.frameworks.length} technologies)`
           )
         );
-        console.log(chalk.gray(`  ✓ ${report.leadership.length} leadership profiles\n`));
+        console.log(chalk.gray(`  ✓ ${report.competitors.length} competitors\n`));
       }
 
       console.log(chalk.green('✨ Research complete!\n'));

@@ -10,8 +10,6 @@ import {
   NewsSchema,
   TechStack,
   TechStackSchema,
-  Leadership,
-  LeadershipSchema,
   Competitors,
   CompetitorsSchema,
   CompanyResearchReport,
@@ -147,13 +145,11 @@ export class CompanyResearcher {
       const competitors = await this.extractCompetitors(companyName);
       const news = await this.extractNews(companyName);
       const techStack = await this.extractTechStack(companyName);
-      const leadership = await this.extractLeadership(companyName);
 
       return {
         companyInfo,
         news,
         techStack,
-        leadership,
         competitors,
         researchDate: new Date().toISOString(),
       };
@@ -434,45 +430,4 @@ export class CompanyResearcher {
     }
   }
 
-  private async extractLeadership(companyName: string): Promise<Leadership> {
-    log('Extracting leadership information...', 'info');
-
-    try {
-      const page = this.getPage();
-
-      // Navigate to company about/team page
-      const companyWebsite = this.guessCompanyWebsite(companyName);
-      await page.goto(`${companyWebsite}/about`);
-      await delay(3000);
-
-      // Extract leadership
-      let leadershipData;
-      try {
-        log(`[Extract] Starting leadership extraction for ${companyName}`, 'info');
-        leadershipData = await this.stagehand.extract(
-          'Extract information about the company leadership team. Get the names, titles, and brief bios of key executives (CEO, CTO, CFO, etc.). Include LinkedIn URLs if visible.',
-          LeadershipSchema
-        );
-        const leadership = leadershipData.leaders || [];
-        log(`Extracted ${leadership.length} leaders`, 'success');
-        console.log(`[Extract] Successfully extracted leadership:`, JSON.stringify(leadershipData, null, 2));
-        return leadership.slice(0, 10); // Limit to 10 leaders
-      } catch (extractError) {
-        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
-        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
-        log(`Failed to extract leadership: ${errorMessage}`, 'error');
-        console.error(`[Extract] Failed to extract leadership:`, {
-          error: errorMessage,
-          stack: errorStack,
-          companyName,
-          errorType: extractError?.constructor?.name,
-          errorDetails: extractError
-        });
-        throw extractError; // Re-throw to be caught by outer catch
-      }
-    } catch (error) {
-      log(`Failed to extract leadership: ${error}`, 'warn');
-      return [];
-    }
-  }
 }

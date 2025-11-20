@@ -73,10 +73,10 @@ The tool will automatically switch to BROWSERBASE mode and show you a live sessi
 
 When researching a company, you'll get a markdown report with:
 
-- 📋 **Company Overview** - Mission, description, founding info
+- 📋 **Company Overview** - Mission, description, key facts
 - 📰 **Recent News** - Top 5 latest articles
 - 💻 **Tech Stack** - Languages, frameworks, tools, infrastructure
-- 👥 **Leadership** - Executive profiles with LinkedIn links
+- 🏢 **Competitors** - Main competitors in the industry
 
 ## 🎯 Examples
 

@@ -224,7 +224,7 @@ After extraction, data is formatted into markdown:
 
 ```typescript
 async generateMarkdown(report: CompanyResearchReport): Promise<string> {
-  const { companyInfo, news, techStack, leadership, competitors, researchDate } = report;
+  const { companyInfo, news, techStack, competitors, researchDate } = report;
 
   let markdown = '';
   markdown += `# ${companyInfo.name} - Company Research Report\n\n`;
