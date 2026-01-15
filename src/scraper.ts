@@ -80,6 +80,65 @@ export class CompanyResearcher {
     return {};
   }
 
+  private normalizeWebsite(url?: string | null): string | null {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      return `${parsed.protocol}//${parsed.hostname}`;
+    } catch {
+      return null;
+    }
+  }
+
+  private sanitizeCompetitors(raw: Competitors): Competitors {
+    const blockedNamePatterns = [
+      /top\s+\d+/i,
+      /alternatives?/i,
+      /community/i,
+      /reddit/i,
+      /dev\s*community/i,
+      /news/i,
+      /blog/i,
+      /forum/i,
+      /list/i,
+    ];
+    const blockedDomains = new Set([
+      'reddit.com',
+      'dev.to',
+      'medium.com',
+      'news.ycombinator.com',
+      'linkedin.com',
+      'github.com',
+      'substack.com',
+    ]);
+    const seen = new Set<string>();
+
+    return raw
+      .map((competitor) => ({
+        name: competitor?.name?.trim() ?? '',
+        description: competitor?.description?.trim() ?? null,
+        website: this.normalizeWebsite(competitor?.website ?? null),
+      }))
+      .filter((competitor) => competitor.name.length > 1)
+      .filter((competitor) => !blockedNamePatterns.some((pattern) => pattern.test(competitor.name)))
+      .filter((competitor) => {
+        if (!competitor.website) return true;
+        try {
+          const hostname = new URL(competitor.website).hostname.replace(/^www\./, '');
+          return !blockedDomains.has(hostname);
+        } catch {
+          return false;
+        }
+      })
+      .filter((competitor) => {
+        const key = competitor.name.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 7);
+  }
+
   private guessCompanyWebsite(companyName: string): string {
     // Common company name to website mappings
     const knownCompanies: Record<string, string> = {
@@ -196,15 +255,14 @@ export class CompanyResearcher {
         companyInfo = await retryWithBackoff(
           async () => {
             return await this.stagehand.extract(
-              `You are researching ${companyName}. Extract ALL available information using the page content as primary source, but MUST supplement with your general knowledge for any missing details.\n\n` +
-              'REQUIRED FIELDS (do NOT return null - use your knowledge if not on page):\n' +
+              `You are researching ${companyName}. Use ONLY the visible page content as your source. Do not infer or use general knowledge. Do not paraphrase; use exact wording from the page. If a field is not explicitly stated on the page, return null for that field.\n\n` +
+              'FIELDS:\n' +
               `- name: "${companyName}" or official name from page\n` +
-              `- description: Write 4-6 sentences describing what ${companyName} does, their products/services, market position, and key achievements. Use page content + your knowledge of the company.\n` +
-              `- mission: Write 4-6 sentences about ${companyName}'s mission, purpose, values and goals. Use page content + your knowledge.\n` +
-              `- headquarters: City and country/state (check your knowledge of ${companyName}'s headquarters)\n` +
-              `- industry: Specific sector (e.g., "AI Safety", "E-commerce Platform", "Payment Processing")\n` +
-              `- website: Official URL\n\n` +
-              `CRITICAL: For well-known companies like ${companyName}, you likely know their headquarters and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
+              `- description: 2-4 sentences summarizing what ${companyName} does, based only on page content\n` +
+              `- mission: 1-3 exact sentences that describe ${companyName}'s mission or purpose as stated on the page (must include the word "mission" or be part of a mission statement). Do not include a company name header or repeat the company name unless it appears in the sentence.\n` +
+              `- headquarters: City and country/state as stated on the page\n` +
+              `- industry: Specific sector as stated on the page\n` +
+              `- website: Official URL stated on the page`,
               CompanyInfoSchema
             );
           },
@@ -218,53 +276,7 @@ export class CompanyResearcher {
         log('Company information extracted', 'success');
         console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
 
-        // STRICT VALIDATION: Fill in missing fields individually with targeted prompts
-        if (!companyInfo.headquarters) {
-          log('Headquarters is missing, using LLM knowledge...', 'info');
-          try {
-            const result = await this.stagehand.extract(
-              `Where is ${companyName}'s headquarters located? Respond with city and state/country (e.g., "San Francisco, California", "London, UK", "New York, NY"). Use your knowledge of ${companyName}.`,
-              z.object({ headquarters: z.string() })
-            );
-            companyInfo.headquarters = result.headquarters || "Location not specified";
-            log(`Headquarters filled: ${companyInfo.headquarters}`, 'success');
-          } catch (err) {
-            companyInfo.headquarters = "Location not specified";
-          }
-        }
-
-        if (!companyInfo.industry) {
-          log('Industry is missing, using LLM knowledge...', 'info');
-          try {
-            const result = await this.stagehand.extract(
-              `What industry or sector does ${companyName} operate in? Respond with a specific industry (e.g., "AI Safety", "E-commerce Platform", "Payment Processing", "Browser Automation"). Use your knowledge of ${companyName}.`,
-              z.object({ industry: z.string() })
-            );
-            companyInfo.industry = result.industry || "Technology";
-            log(`Industry filled: ${companyInfo.industry}`, 'success');
-          } catch (err) {
-            companyInfo.industry = "Technology";
-          }
-        }
-
-        if (!companyInfo.description) {
-          log('Description is missing, using LLM knowledge...', 'info');
-          try {
-            const result = await this.stagehand.extract(
-              `Write a 4-6 sentence description of ${companyName}. Include what they do, their main products/services, and their market position. Use your knowledge of ${companyName}.`,
-              z.object({ description: z.string() })
-            );
-            companyInfo.description = result.description || `${companyName} is a technology company.`;
-            log(`Description filled (length: ${companyInfo.description?.length || 0})`, 'success');
-          } catch (err) {
-            companyInfo.description = `${companyName} is a technology company.`;
-          }
-        }
-
-        // GUARANTEE: Ensure website is always set
-        companyInfo.website = companyWebsite;
-
-        log('All required fields guaranteed', 'success');
+        log('Company fields extracted from page content', 'success');
 
         return companyInfo;
       } catch (extractError) {
@@ -308,19 +320,20 @@ export class CompanyResearcher {
       // Use current page context (already on company website)
       await delay(2000);
 
-      // Extract competitors using LLM knowledge + page context
+      // Extract competitors using page context only
       let competitorsData;
       try {
         log(`[Extract] Starting competitors extraction for ${companyName}`, 'info');
         competitorsData = await this.stagehand.extract(
-          `Based on the visible content and your knowledge of ${companyName}, identify 5-7 main competitors in the same industry. For each competitor, provide:\n` +
-          '- Company name (exact official name)\n' +
-          '- Brief description of what they do and how they compete (2-3 lines explaining their products/services)\n' +
-          '- Website URL (if known)\n' +
-          'Use both the page content and your general knowledge of the industry.',
+          `From the visible content only, list up to 5 direct competitors that are actual companies (not articles, lists, communities, or forums). Use exact wording from the page; do not paraphrase.\n` +
+          'If a competitor is not explicitly referenced on the page, omit it.\n' +
+          'For each competitor, provide:\n' +
+          '- Company name (official name)\n' +
+          '- Short description based on the page (1-2 sentences)\n' +
+          '- Website URL if explicitly shown\n',
           CompetitorsSchema
         );
-        const competitors = competitorsData.competitors || [];
+        const competitors = this.sanitizeCompetitors(competitorsData.competitors || []);
         log(`Extracted ${competitors.length} competitors`, 'success');
         console.log(`[Extract] Successfully extracted competitors:`, JSON.stringify(competitorsData, null, 2));
         return competitors.slice(0, 7); // Limit to 7 competitors

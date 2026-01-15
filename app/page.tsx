@@ -15,7 +15,7 @@ export default function HomePage() {
   const [apiStatus, setApiStatus] = useState<ApiStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'markdown'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'text'>('preview');
 
   useEffect(() => {
     checkApiStatus();
@@ -72,28 +72,115 @@ export default function HomePage() {
 
   const downloadMarkdown = () => {
     if (!markdown) return;
-    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const blob = new Blob([markdown], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${companyName.replace(/\s+/g, '-').toLowerCase()}-research-${new Date().toISOString().split('T')[0]}.md`;
+    a.download = `${companyName.replace(/\s+/g, '-').toLowerCase()}-research-${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const markdownToHtml = (md: string): string => {
-    return md
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank">$1</a>')
-      .replace(/^\- (.*$)/gim, '<li>$1</li>')
-      .replace(/^\* (.*$)/gim, '<li>$1</li>')
-      .replace(/^---$/gim, '<hr>')
-      .replace(/\n/g, '<br>');
+  const renderPlainText = (text: string): string => {
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const linkify = (value: string) => {
+      const escaped = escapeHtml(value);
+      return escaped.replace(
+        /(https?:\/\/[^\s]+)/g,
+        '<a href="$1" target="_blank" rel="noreferrer">$1</a>'
+      );
+    };
+
+    const sectionHeaders = new Set([
+      'Overview',
+      'Mission',
+      'Details',
+      'Competitors',
+      'Technology Stack',
+      'Recent News',
+      'Key Facts',
+      'Company Overview',
+    ]);
+
+    const lines = text.split(/\r?\n/);
+    const htmlParts: string[] = [];
+    let inSection = false;
+    let inMeta = false;
+
+    const closeSection = () => {
+      if (!inSection) return;
+      htmlParts.push('</div>');
+      inSection = false;
+    };
+
+    const closeMeta = () => {
+      if (!inMeta) return;
+      htmlParts.push('</div>');
+      inMeta = false;
+    };
+
+    const openSection = (title: string) => {
+      closeMeta();
+      closeSection();
+      htmlParts.push('<div class="text-block">');
+      htmlParts.push(`<div class="block-header">${escapeHtml(title)}</div>`);
+      inSection = true;
+    };
+
+    const openMeta = () => {
+      if (inMeta) return;
+      closeSection();
+      htmlParts.push('<div class="text-block meta-block">');
+      inMeta = true;
+    };
+
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        if (inSection || inMeta) {
+          htmlParts.push('<div class="block-gap"></div>');
+        }
+        return;
+      }
+
+      if (trimmed === 'Company Research Report') {
+        closeMeta();
+        closeSection();
+        htmlParts.push(`<div class="report-title">${escapeHtml(trimmed)}</div>`);
+        return;
+      }
+
+      if (sectionHeaders.has(trimmed)) {
+        openSection(trimmed);
+        return;
+      }
+
+      if (trimmed.startsWith('Company:') || trimmed.startsWith('Report Date:')) {
+        openMeta();
+        htmlParts.push(`<div class="text-line">${linkify(trimmed)}</div>`);
+        return;
+      }
+
+      if (!inSection && !inMeta) {
+        openSection('Summary');
+      }
+
+      htmlParts.push(`<div class="text-line">${linkify(trimmed)}</div>`);
+    });
+
+    closeMeta();
+    closeSection();
+
+    return htmlParts.join('\n');
   };
 
   return (
@@ -101,7 +188,7 @@ export default function HomePage() {
       <header>
         <h1>One-Stop Recruiting Guide</h1>
         <p className="subtitle">
-          Two features: AI-powered company research reports and a recruiter finder for any company.
+          Holistic tool to help job-seekers find company information and recruiters to reach out to!
         </p>
         <nav className="nav-links">
           <Link href="/" className="nav-link active">Company Research</Link>
@@ -184,22 +271,22 @@ export default function HomePage() {
               Preview
             </button>
             <button
-              className={`tab-btn ${activeTab === 'markdown' ? 'active' : ''}`}
-              onClick={() => setActiveTab('markdown')}
+              className={`tab-btn ${activeTab === 'text' ? 'active' : ''}`}
+              onClick={() => setActiveTab('text')}
             >
-              Markdown
+              Text
             </button>
           </div>
 
           <div className={`tab-content ${activeTab === 'preview' ? 'active' : ''}`}>
             <div
-              className="preview-content"
-              dangerouslySetInnerHTML={{ __html: markdownToHtml(markdown) }}
+              className="plain-content"
+              dangerouslySetInnerHTML={{ __html: renderPlainText(markdown) }}
             />
           </div>
 
-          <div className={`tab-content ${activeTab === 'markdown' ? 'active' : ''}`}>
-            <pre className="markdown-content">{markdown}</pre>
+          <div className={`tab-content ${activeTab === 'text' ? 'active' : ''}`}>
+            <pre className="text-content">{markdown}</pre>
           </div>
 
           <button onClick={resetForm} className="btn-primary" style={{ marginTop: '20px' }}>

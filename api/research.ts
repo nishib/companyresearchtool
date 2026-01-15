@@ -95,6 +95,105 @@ function guessCompanyWebsite(companyName: string): string {
   return knownCompanies[normalized] || `https://www.${normalized}.com`;
 }
 
+function cleanText(value?: string | null): string {
+  if (!value) return 'Not Available';
+  const cleaned = value
+    .replace(/^\s*#+\s*/g, '')
+    .replace(/\s*\n+\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return cleaned || 'Not Available';
+}
+
+function sanitizeNarrative(value: string, companyName: string): string {
+  if (!value || value === 'Not Available') return 'Not Available';
+  const blockedPhrases = [
+    /one little project/i,
+    /annual revenue/i,
+    /total funding/i,
+    /\bemploys\b/i,
+    /\byoy\b/i,
+  ];
+  const withoutHeader = value.replace(new RegExp(`^${companyName}\\s*\\([^)]*\\)\\s*`, 'i'), '').trim();
+  const sentences = withoutHeader.split(/(?<=[.!?])\s+/);
+  const kept = sentences.filter((sentence) => {
+    const trimmed = sentence.trim();
+    if (!trimmed) return false;
+    if (blockedPhrases.some((pattern) => pattern.test(trimmed))) return false;
+    const mentionsCompany = trimmed.toLowerCase().includes(companyName.toLowerCase());
+    const allowedStart = /^(it|the company|this company|they|its|we|our)\b/i.test(trimmed);
+    const containsGenericCompanyClaim = /\bis a company that\b/i.test(trimmed);
+    if (containsGenericCompanyClaim && !mentionsCompany) return false;
+    return mentionsCompany || allowedStart;
+  });
+  const unique = Array.from(new Set(kept.map((sentence) => sentence.trim()))).filter(Boolean);
+  const cleaned = unique.join(' ').trim();
+  if (!cleaned) return 'Not Available';
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+}
+
+function normalizeWebsite(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.hostname}`;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeCompetitors(raw: Array<z.infer<typeof CompetitorSchema>>): Array<z.infer<typeof CompetitorSchema>> {
+  const blockedNamePatterns = [
+    /top\s+\d+/i,
+    /alternatives?/i,
+    /community/i,
+    /reddit/i,
+    /dev\s*community/i,
+    /news/i,
+    /blog/i,
+    /forum/i,
+    /list/i,
+  ];
+  const blockedDomains = new Set([
+    'reddit.com',
+    'dev.to',
+    'medium.com',
+    'news.ycombinator.com',
+    'linkedin.com',
+    'github.com',
+    'substack.com',
+  ]);
+  const seen = new Set<string>();
+
+  return raw
+    .map((competitor) => {
+      const name = competitor?.name?.trim() ?? '';
+      return {
+        name,
+        description: competitor?.description?.trim() ?? null,
+        website: normalizeWebsite(competitor?.website ?? null),
+      };
+    })
+    .filter((competitor) => competitor.name.length > 1)
+    .filter((competitor) => !blockedNamePatterns.some((pattern) => pattern.test(competitor.name)))
+    .filter((competitor) => {
+      if (!competitor.website) return true;
+      try {
+        const hostname = new URL(competitor.website).hostname.replace(/^www\./, '');
+        return !blockedDomains.has(hostname);
+      } catch {
+        return false;
+      }
+    })
+    .filter((competitor) => {
+      const key = competitor.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 7);
+}
+
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -333,15 +432,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         async () => {
           // Add timeout wrapper for extraction
           const extractionPromise = stagehand.extract(
-            `You are researching ${companyName}. Extract ALL available information using the page content as primary source, but MUST supplement with your general knowledge for any missing details.\n\n` +
-            'REQUIRED FIELDS (do NOT return null - use your knowledge if not on page):\n' +
+            `You are researching ${companyName}. Use ONLY the visible page content as your source. Do not infer or use general knowledge. Do not paraphrase; use exact wording from the page. If a field is not explicitly stated on the page, return null for that field.\n\n` +
+            'FIELDS:\n' +
             `- name: "${companyName}" or official name from page\n` +
-            `- description: Write 4-6 sentences describing what ${companyName} does, their products/services, market position, and key achievements. Use page content + your knowledge of the company.\n` +
-            `- mission: Write 4-6 sentences about ${companyName}'s mission, purpose, values and goals. Use page content + your knowledge.\n` +
-            `- headquarters: City and country/state (check your knowledge of ${companyName}'s headquarters)\n` +
-            `- industry: Specific sector (e.g., "AI Safety", "E-commerce Platform", "Payment Processing")\n` +
-            `- website: Official URL\n\n` +
-            `CRITICAL: For well-known companies like ${companyName}, you likely know their headquarters and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`,
+            `- description: 2-4 sentences summarizing what ${companyName} does, based only on page content\n` +
+            `- mission: 1-3 exact sentences that describe ${companyName}'s mission or purpose as stated on the page (must include the word "mission" or be part of a mission statement). Do not include a company name header or repeat the company name unless it appears in the sentence.\n` +
+            `- headquarters: City and country/state as stated on the page\n` +
+            `- industry: Specific sector as stated on the page\n` +
+            `- website: Official URL stated on the page`,
             CompanyInfoSchema
           );
 
@@ -361,55 +459,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
 
-      // STRICT VALIDATION: Fill in missing fields using pure LLM knowledge
-      // Check each field individually and fill with increasingly strict prompts
-
-      if (!companyInfo.headquarters) {
-        console.log(`[Extract] Headquarters is missing, using LLM knowledge...`);
-        try {
-          const result = await stagehand.extract(
-            `Where is ${companyName}'s headquarters located? Respond with city and state/country (e.g., "San Francisco, California", "London, UK", "New York, NY"). Use your knowledge of ${companyName}.`,
-            z.object({ headquarters: z.string() })
-          );
-          companyInfo.headquarters = result.headquarters || "Location not specified";
-          console.log(`[Extract] Headquarters filled: ${companyInfo.headquarters}`);
-        } catch (err) {
-          companyInfo.headquarters = "Location not specified";
-        }
-      }
-
-      if (!companyInfo.industry) {
-        console.log(`[Extract] Industry is missing, using LLM knowledge...`);
-        try {
-          const result = await stagehand.extract(
-            `What industry or sector does ${companyName} operate in? Respond with a specific industry (e.g., "AI Safety", "E-commerce Platform", "Payment Processing", "Browser Automation"). Use your knowledge of ${companyName}.`,
-            z.object({ industry: z.string() })
-          );
-          companyInfo.industry = result.industry || "Technology";
-          console.log(`[Extract] Industry filled: ${companyInfo.industry}`);
-        } catch (err) {
-          companyInfo.industry = "Technology";
-        }
-      }
-
-      if (!companyInfo.description) {
-        console.log(`[Extract] Description is missing, using LLM knowledge...`);
-        try {
-          const result = await stagehand.extract(
-            `Write a 4-6 sentence description of ${companyName}. Include what they do, their main products/services, and their market position. Use your knowledge of ${companyName}.`,
-            z.object({ description: z.string() })
-          );
-          companyInfo.description = result.description || `${companyName} is a technology company.`;
-          console.log(`[Extract] Description filled (length: ${companyInfo.description?.length || 0})`);
-        } catch (err) {
-          companyInfo.description = `${companyName} is a technology company.`;
-        }
-      }
-
-      // GUARANTEE: Ensure website is always the clean URL
-      companyInfo.website = website.replace(/\/en\/.*$/, '').replace(/\/$/, '');
-
-      console.log(`[Extract] Final guaranteed data:`, JSON.stringify({
+      console.log(`[Extract] Final extracted data:`, JSON.stringify({
         headquarters: companyInfo.headquarters,
         industry: companyInfo.industry,
         hasDescription: !!companyInfo.description,
@@ -441,27 +491,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Return fallback data
       companyInfo = {
         name: companyName,
-        mission: 'Not found',
-        description: 'Not found',
+        mission: 'Not Available',
+        description: 'Not Available',
         headquarters: undefined,
         industry: undefined,
         website: undefined
       };
     }
 
-    // Extract competitors using LLM knowledge + page context
+    // Extract competitors using page context only
     let competitors: any[] = [];
     try {
       console.log(`[Extract] Starting competitors extraction for ${companyName}`);
       const competitorsData = await stagehand.extract(
-        `Based on the visible content and your knowledge of ${companyName}, identify 5-7 main competitors in the same industry. For each competitor, provide:\n` +
-        '- Company name (exact official name)\n' +
-        '- Brief description of what they do and how they compete (2-3 lines explaining their products/services)\n' +
-        '- Website URL (if known)\n' +
-        'Use both the page content and your general knowledge of the industry.',
+        `From the visible content only, list up to 5 direct competitors that are actual companies (not articles, lists, communities, or forums). Use exact wording from the page; do not paraphrase.\n` +
+        'If a competitor is not explicitly referenced on the page, omit it.\n' +
+        'For each competitor, provide:\n' +
+        '- Company name (official name)\n' +
+        '- Short description based on the page (1-2 sentences)\n' +
+        '- Website URL if explicitly shown\n',
         CompetitorsSchema
       );
-      competitors = competitorsData.competitors || [];
+      competitors = sanitizeCompetitors(competitorsData.competitors || []);
       console.log(`[Extract] Successfully extracted ${competitors.length} competitors`);
     } catch (error) {
       console.error(`[Extract] Failed to extract competitors:`, error);
@@ -470,30 +521,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Generate simple markdown report
     const competitorsSection = competitors.length > 0
-      ? `\n## Competitors\n${competitors.map((c: any) =>
-          `\n### ${c.name}\n${c.description || 'No description available'}${c.website ? `\n- Website: ${c.website}` : ''}`
-        ).join('\n')}`
-      : '';
+      ? `\nCompetitors\n${competitors.map((c: any) => {
+          const description = sanitizeNarrative(cleanText(c.description), c.name);
+          const lines = [
+            `Name: ${c.name}`,
+            `Description: ${description === 'Not Available' ? 'No Description Available' : description}`,
+          ];
+          if (c.website) {
+            lines.push(`Website: ${c.website}`);
+          }
+          return `\n${lines.join('\n')}`;
+        }).join('\n')}`
+      : '\nCompetitors\nNo Competitor Information Found';
 
-    // Use clean website URL (the guessed one, not the extracted one which might be a test URL)
-    const cleanWebsite = website.replace(/\/en\/.*$/, '').replace(/\/$/, '');
+    const websiteOutput = normalizeWebsite(companyInfo.website) ?? 'Not Available';
 
-    const markdown = `# ${companyInfo.name ?? companyName}
+    const overview = sanitizeNarrative(cleanText(companyInfo.description), companyInfo.name ?? companyName);
+    const mission = sanitizeNarrative(cleanText(companyInfo.mission), companyInfo.name ?? companyName);
 
-## Overview
-${companyInfo.description ?? 'No description available'}
+    const markdown = `Company Research Report
 
-## Mission
-${companyInfo.mission ?? 'Not available'}
+Company: ${companyInfo.name ?? companyName}
 
-## Details
-- **Headquarters:** ${companyInfo.headquarters ?? 'Unknown'}
-- **Industry:** ${companyInfo.industry ?? 'Unknown'}
-- **Website:** ${cleanWebsite}
+Overview
+${overview}
+
+Mission
+${mission}
+
+Details
+Headquarters: ${companyInfo.headquarters ?? 'Not Available'}
+Industry: ${companyInfo.industry ?? 'Not Available'}
+Website: ${websiteOutput}
 ${competitorsSection}
 
----
-*Research generated on ${new Date().toISOString().split('T')[0]}*
+Report Date: ${new Date().toISOString().split('T')[0]}
 `;
 
     await stagehand.close();

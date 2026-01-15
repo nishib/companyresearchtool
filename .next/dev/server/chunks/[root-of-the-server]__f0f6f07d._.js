@@ -734,11 +734,8 @@ __turbopack_context__.s([
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$init$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/init.ts [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$dotenv$2f$config$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/dotenv/config.js [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$browserbasehq$2f$stagehand$2f$dist$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/@browserbasehq/stagehand/dist/index.js [app-route] (ecmascript)");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/zod/dist/esm/index.js [app-route] (ecmascript) <locals>");
-var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/zod/dist/esm/v3/index.js [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$types$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/types.ts [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/utils.ts [app-route] (ecmascript)");
-;
 ;
 ;
 ;
@@ -795,6 +792,56 @@ class CompanyResearcher {
             };
         }
         return {};
+    }
+    normalizeWebsite(url) {
+        if (!url) return null;
+        try {
+            const parsed = new URL(url);
+            return `${parsed.protocol}//${parsed.hostname}`;
+        } catch  {
+            return null;
+        }
+    }
+    sanitizeCompetitors(raw) {
+        const blockedNamePatterns = [
+            /top\s+\d+/i,
+            /alternatives?/i,
+            /community/i,
+            /reddit/i,
+            /dev\s*community/i,
+            /news/i,
+            /blog/i,
+            /forum/i,
+            /list/i
+        ];
+        const blockedDomains = new Set([
+            'reddit.com',
+            'dev.to',
+            'medium.com',
+            'news.ycombinator.com',
+            'linkedin.com',
+            'github.com',
+            'substack.com'
+        ]);
+        const seen = new Set();
+        return raw.map((competitor)=>({
+                name: competitor?.name?.trim() ?? '',
+                description: competitor?.description?.trim() ?? null,
+                website: this.normalizeWebsite(competitor?.website ?? null)
+            })).filter((competitor)=>competitor.name.length > 1).filter((competitor)=>!blockedNamePatterns.some((pattern)=>pattern.test(competitor.name))).filter((competitor)=>{
+            if (!competitor.website) return true;
+            try {
+                const hostname = new URL(competitor.website).hostname.replace(/^www\./, '');
+                return !blockedDomains.has(hostname);
+            } catch  {
+                return false;
+            }
+        }).filter((competitor)=>{
+            const key = competitor.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, 7);
     }
     guessCompanyWebsite(companyName) {
         // Common company name to website mappings
@@ -891,7 +938,7 @@ class CompanyResearcher {
             try {
                 (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`[Extract] Starting extraction for ${companyName} from ${companyWebsite}`, 'info');
                 companyInfo = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["retryWithBackoff"])(async ()=>{
-                    return await this.stagehand.extract(`You are researching ${companyName}. Extract ALL available information using the page content as primary source, but MUST supplement with your general knowledge for any missing details.\n\n` + 'REQUIRED FIELDS (do NOT return null - use your knowledge if not on page):\n' + `- name: "${companyName}" or official name from page\n` + `- description: Write 4-6 sentences describing what ${companyName} does, their products/services, market position, and key achievements. Use page content + your knowledge of the company.\n` + `- mission: Write 4-6 sentences about ${companyName}'s mission, purpose, values and goals. Use page content + your knowledge.\n` + `- headquarters: City and country/state (check your knowledge of ${companyName}'s headquarters)\n` + `- industry: Specific sector (e.g., "AI Safety", "E-commerce Platform", "Payment Processing")\n` + `- website: Official URL\n\n` + `CRITICAL: For well-known companies like ${companyName}, you likely know their headquarters and industry. Do NOT return null for these fields - use your training data knowledge to fill them in accurately.`, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$types$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["CompanyInfoSchema"]);
+                    return await this.stagehand.extract(`You are researching ${companyName}. Use ONLY the visible page content as your source. Do not infer or use general knowledge. If a field is not explicitly stated on the page, return null for that field.\n\n` + 'FIELDS:\n' + `- name: "${companyName}" or official name from page\n` + `- description: 2-4 sentences summarizing what ${companyName} does, based only on page content\n` + `- mission: 1-3 sentences about ${companyName}'s mission/values, based only on page content\n` + `- headquarters: City and country/state as stated on the page\n` + `- industry: Specific sector as stated on the page\n` + `- website: Official URL stated on the page`, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$types$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["CompanyInfoSchema"]);
                 }, {
                     maxRetries: 2,
                     initialDelay: 2000,
@@ -899,46 +946,9 @@ class CompanyResearcher {
                 });
                 (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('Company information extracted', 'success');
                 console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
-                // STRICT VALIDATION: Fill in missing fields individually with targeted prompts
-                if (!companyInfo.headquarters) {
-                    (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('Headquarters is missing, using LLM knowledge...', 'info');
-                    try {
-                        const result = await this.stagehand.extract(`Where is ${companyName}'s headquarters located? Respond with city and state/country (e.g., "San Francisco, California", "London, UK", "New York, NY"). Use your knowledge of ${companyName}.`, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].object({
-                            headquarters: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].string()
-                        }));
-                        companyInfo.headquarters = result.headquarters || "Location not specified";
-                        (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`Headquarters filled: ${companyInfo.headquarters}`, 'success');
-                    } catch (err) {
-                        companyInfo.headquarters = "Location not specified";
-                    }
-                }
-                if (!companyInfo.industry) {
-                    (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('Industry is missing, using LLM knowledge...', 'info');
-                    try {
-                        const result = await this.stagehand.extract(`What industry or sector does ${companyName} operate in? Respond with a specific industry (e.g., "AI Safety", "E-commerce Platform", "Payment Processing", "Browser Automation"). Use your knowledge of ${companyName}.`, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].object({
-                            industry: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].string()
-                        }));
-                        companyInfo.industry = result.industry || "Technology";
-                        (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`Industry filled: ${companyInfo.industry}`, 'success');
-                    } catch (err) {
-                        companyInfo.industry = "Technology";
-                    }
-                }
-                if (!companyInfo.description) {
-                    (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('Description is missing, using LLM knowledge...', 'info');
-                    try {
-                        const result = await this.stagehand.extract(`Write a 4-6 sentence description of ${companyName}. Include what they do, their main products/services, and their market position. Use your knowledge of ${companyName}.`, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].object({
-                            description: __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$zod$2f$dist$2f$esm$2f$v3$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["z"].string()
-                        }));
-                        companyInfo.description = result.description || `${companyName} is a technology company.`;
-                        (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`Description filled (length: ${companyInfo.description?.length || 0})`, 'success');
-                    } catch (err) {
-                        companyInfo.description = `${companyName} is a technology company.`;
-                    }
-                }
                 // GUARANTEE: Ensure website is always set
                 companyInfo.website = companyWebsite;
-                (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('All required fields guaranteed', 'success');
+                (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])('Company fields extracted from page content', 'success');
                 return companyInfo;
             } catch (extractError) {
                 const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
@@ -977,12 +987,12 @@ class CompanyResearcher {
             const page = this.getPage();
             // Use current page context (already on company website)
             await (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["delay"])(2000);
-            // Extract competitors using LLM knowledge + page context
+            // Extract competitors using page context only
             let competitorsData;
             try {
                 (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`[Extract] Starting competitors extraction for ${companyName}`, 'info');
-                competitorsData = await this.stagehand.extract(`Based on the visible content and your knowledge of ${companyName}, identify 5-7 main competitors in the same industry. For each competitor, provide:\n` + '- Company name (exact official name)\n' + '- Brief description of what they do and how they compete (2-3 lines explaining their products/services)\n' + '- Website URL (if known)\n' + 'Use both the page content and your general knowledge of the industry.', __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$types$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["CompetitorsSchema"]);
-                const competitors = competitorsData.competitors || [];
+                competitorsData = await this.stagehand.extract(`From the visible content only, list up to 5 direct competitors that are actual companies (not articles, lists, communities, or forums).\n` + 'If a competitor is not explicitly referenced on the page, omit it.\n' + 'For each competitor, provide:\n' + '- Company name (official name)\n' + '- Short description based on the page (1-2 sentences)\n' + '- Website URL if explicitly shown\n', __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$types$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["CompetitorsSchema"]);
+                const competitors = this.sanitizeCompetitors(competitorsData.competitors || []);
                 (0, __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$utils$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["log"])(`Extracted ${competitors.length} competitors`, 'success');
                 console.log(`[Extract] Successfully extracted competitors:`, JSON.stringify(competitorsData, null, 2));
                 return competitors.slice(0, 7); // Limit to 7 competitors

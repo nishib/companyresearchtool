@@ -6,78 +6,147 @@ export class ReportGenerator {
   async generateMarkdown(report: CompanyResearchReport): Promise<string> {
     const { companyInfo, news, techStack, competitors, researchDate } = report;
 
+    const cleanText = (value?: string | null, fallback: string = 'Not Available') => {
+      if (!value) return fallback;
+      const cleaned = value
+        .replace(/^\s*#+\s*/g, '')
+        .replace(/\s*\n+\s*/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      return cleaned || fallback;
+    };
+
+    const sanitizeNarrative = (value: string, companyName: string): string => {
+      if (!value || value === 'Not Available') return 'Not Available';
+      const blockedPhrases = [
+        /one little project/i,
+        /annual revenue/i,
+        /total funding/i,
+        /\bemploys\b/i,
+        /\byoy\b/i,
+      ];
+      const withoutHeader = value.replace(new RegExp(`^${companyName}\\s*\\([^)]*\\)\\s*`, 'i'), '').trim();
+      const sentences = withoutHeader.split(/(?<=[.!?])\s+/);
+      const kept = sentences.filter((sentence) => {
+        const trimmed = sentence.trim();
+        if (!trimmed) return false;
+        if (blockedPhrases.some((pattern) => pattern.test(trimmed))) return false;
+        const mentionsCompany = trimmed.toLowerCase().includes(companyName.toLowerCase());
+        const allowedStart = /^(it|the company|this company|they|its|we|our)\b/i.test(trimmed);
+        const containsGenericCompanyClaim = /\bis a company that\b/i.test(trimmed);
+        if (containsGenericCompanyClaim && !mentionsCompany) return false;
+        return mentionsCompany || allowedStart;
+      });
+      const unique = Array.from(new Set(kept.map((sentence) => sentence.trim()))).filter(Boolean);
+      const cleaned = unique.join(' ').trim();
+      if (!cleaned) return 'Not Available';
+      return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+    };
+
+    const formatStackItem = (value: string): string => {
+      const trimmed = value.trim();
+      if (!trimmed) return trimmed;
+      const normalized = trimmed.toLowerCase();
+      const map: Record<string, string> = {
+        'javascript': 'JavaScript',
+        'typescript': 'TypeScript',
+        'node.js': 'Node.js',
+        'next.js': 'Next.js',
+        'react': 'React',
+        'vue': 'Vue',
+        'angular': 'Angular',
+        'go': 'Go',
+        'rust': 'Rust',
+        'scala': 'Scala',
+        'kubernetes': 'Kubernetes',
+        'git': 'Git',
+        'terraform': 'Terraform',
+        'vercel': 'Vercel',
+        'aws': 'AWS',
+        'gcp': 'GCP',
+        'sql': 'SQL',
+        'nosql': 'NoSQL',
+        'api': 'API',
+        'sdk': 'SDK',
+        'ci': 'CI',
+        'cd': 'CD',
+        'cdn': 'CDN',
+        'graphql': 'GraphQL',
+        'grpc': 'gRPC',
+        'http': 'HTTP',
+        'https': 'HTTPS',
+      };
+      if (map[normalized]) return map[normalized];
+      if (/[A-Z]/.test(trimmed)) return trimmed;
+      return trimmed
+        .split(' ')
+        .map((word) => {
+          if (!word) return word;
+          if (map[word.toLowerCase()]) return map[word.toLowerCase()];
+          return word[0].toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+    };
+
     let markdown = '';
 
     // Header
-    markdown += `# ${companyInfo.name} - Company Research Report\n\n`;
-    markdown += `**Research Date:** ${formatDate()}\n\n`;
-    markdown += `---\n\n`;
+    markdown += `Company Research Report\n\n`;
+    markdown += `Company: ${companyInfo.name}\n`;
+    markdown += `Research Date: ${formatDate()}\n\n`;
 
     // Company Information
-    markdown += `## 📋 Company Overview\n\n`;
-    markdown += `**Mission:** ${companyInfo.mission}\n\n`;
-    markdown += `${companyInfo.description}\n\n`;
+    const overview = sanitizeNarrative(cleanText(companyInfo.description, 'Not Available'), companyInfo.name);
+    const mission = sanitizeNarrative(cleanText(companyInfo.mission), companyInfo.name);
+    markdown += `Company Overview\n`;
+    markdown += `Mission: ${mission}\n\n`;
+    markdown += `${overview === 'Not Available' ? 'No Description Available' : overview}\n\n`;
 
     if (companyInfo.headquarters || companyInfo.industry || companyInfo.website) {
-      markdown += `### Key Facts\n\n`;
-      if (companyInfo.headquarters) markdown += `- **Headquarters:** ${companyInfo.headquarters}\n`;
-      if (companyInfo.industry) markdown += `- **Industry:** ${companyInfo.industry}\n`;
-      if (companyInfo.website) markdown += `- **Website:** ${companyInfo.website}\n`;
+      markdown += `Key Facts\n`;
+      if (companyInfo.headquarters) markdown += `Headquarters: ${companyInfo.headquarters}\n`;
+      if (companyInfo.industry) markdown += `Industry: ${companyInfo.industry}\n`;
+      if (companyInfo.website) markdown += `Website: ${companyInfo.website}\n`;
       markdown += `\n`;
     }
-
-    markdown += `---\n\n`;
 
     // Recent News
-    markdown += `## 📰 Recent News\n\n`;
+    markdown += `Recent News\n\n`;
     if (news.length > 0) {
       news.forEach((item, index) => {
-        markdown += `### ${index + 1}. ${item.title}\n\n`;
-        markdown += `**Date:** ${item.date} | **Source:** ${item.source}\n\n`;
-        markdown += `${item.summary}\n\n`;
+        markdown += `${index + 1}. ${item.title}\n`;
+        markdown += `Date: ${item.date} | Source: ${item.source}\n`;
+        markdown += `${item.summary}\n`;
         if (item.url) {
-          markdown += `[Read more](${item.url})\n\n`;
+          markdown += `Read More: ${item.url}\n`;
         }
+        markdown += `\n`;
       });
     } else {
-      markdown += `*No recent news found*\n\n`;
+      markdown += `No Recent News Found\n\n`;
     }
 
-    markdown += `---\n\n`;
-
     // Tech Stack
-    markdown += `## 💻 Technology Stack\n\n`;
+    markdown += `Technology Stack\n\n`;
 
     if (techStack.languages.length > 0) {
-      markdown += `### Programming Languages\n\n`;
-      techStack.languages.forEach(lang => {
-        markdown += `- ${lang}\n`;
-      });
-      markdown += `\n`;
+      const languages = techStack.languages.map(formatStackItem).join(', ');
+      markdown += `Programming Languages: ${languages}\n\n`;
     }
 
     if (techStack.frameworks.length > 0) {
-      markdown += `### Frameworks & Libraries\n\n`;
-      techStack.frameworks.forEach(fw => {
-        markdown += `- ${fw}\n`;
-      });
-      markdown += `\n`;
+      const frameworks = techStack.frameworks.map(formatStackItem).join(', ');
+      markdown += `Frameworks and Libraries: ${frameworks}\n\n`;
     }
 
     if (techStack.tools.length > 0) {
-      markdown += `### Tools & Platforms\n\n`;
-      techStack.tools.forEach(tool => {
-        markdown += `- ${tool}\n`;
-      });
-      markdown += `\n`;
+      const tools = techStack.tools.map(formatStackItem).join(', ');
+      markdown += `Tools and Platforms: ${tools}\n\n`;
     }
 
     if (techStack.infrastructure.length > 0) {
-      markdown += `### Infrastructure\n\n`;
-      techStack.infrastructure.forEach(infra => {
-        markdown += `- ${infra}\n`;
-      });
-      markdown += `\n`;
+      const infrastructure = techStack.infrastructure.map(formatStackItem).join(', ');
+      markdown += `Infrastructure: ${infrastructure}\n\n`;
     }
 
     if (
@@ -86,31 +155,27 @@ export class ReportGenerator {
       techStack.tools.length === 0 &&
       techStack.infrastructure.length === 0
     ) {
-      markdown += `*Tech stack information not found*\n\n`;
+      markdown += `Tech Stack Information Not Found\n\n`;
     }
-
-    markdown += `---\n\n`;
 
     // Competitors
-    markdown += `## 🏢 Competitors\n\n`;
+    markdown += `Competitors\n\n`;
     if (competitors.length > 0) {
       competitors.forEach(competitor => {
-        markdown += `### ${competitor.name}\n\n`;
-        if (competitor.description) {
-          markdown += `${competitor.description}\n\n`;
-        }
+        const description = sanitizeNarrative(cleanText(competitor.description, 'Not Available'), competitor.name);
+        markdown += `Name: ${competitor.name}\n`;
+        markdown += `Description: ${description === 'Not Available' ? 'No Description Available' : description}\n`;
         if (competitor.website) {
-          markdown += `- **Website:** ${competitor.website}\n\n`;
+          markdown += `Website: ${competitor.website}\n`;
         }
+        markdown += `\n`;
       });
     } else {
-      markdown += `*Competitor information not found*\n\n`;
+      markdown += `No Competitor Information Found\n\n`;
     }
 
-    markdown += `---\n\n`;
-
     // Footer
-    markdown += `*Report generated on ${researchDate} using automated research tools*\n`;
+    markdown += `Report Generated On ${researchDate} Using Automated Research Tools\n`;
 
     return markdown;
   }
