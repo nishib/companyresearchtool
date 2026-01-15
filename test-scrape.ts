@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { CompanyResearcher } from './src/scraper.js';
+import { CompanyResearcher } from './src/scraper';
 
 async function test() {
   console.log('Starting test scrape for Shopify...\n');

@@ -31,7 +31,13 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(timeout 120 npx tsx:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:docs.exa.ai)",
+      "WebFetch(domain:exa.ai)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

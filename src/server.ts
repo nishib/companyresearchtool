@@ -1,10 +1,10 @@
 // MUST be first - configures environment to prevent pino errors
-import './init.js';
+import './init';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { CompanyResearcher } from './scraper.js';
-import { ReportGenerator } from './report-generator.js';
+import { CompanyResearcher } from './scraper';
+import { ReportGenerator } from './report-generator';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

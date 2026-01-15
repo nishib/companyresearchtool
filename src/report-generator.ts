@@ -1,6 +1,6 @@
 import { writeFile } from 'fs/promises';
-import { CompanyResearchReport } from './types.js';
-import { log, sanitizeFilename, formatDate } from './utils.js';
+import { CompanyResearchReport } from './types';
+import { log, sanitizeFilename, formatDate } from './utils';
 
 export class ReportGenerator {
   async generateMarkdown(report: CompanyResearchReport): Promise<string> {

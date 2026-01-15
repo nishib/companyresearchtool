@@ -1,5 +1,5 @@
 // MUST be first - configures environment to prevent pino errors
-import './init.js';
+import './init';
 import 'dotenv/config';
 import { Stagehand } from '@browserbasehq/stagehand';
 import { z } from 'zod';
@@ -12,9 +12,11 @@ import {
   TechStackSchema,
   Competitors,
   CompetitorsSchema,
+  Recruiters,
+  RecruitersSchema,
   CompanyResearchReport,
-} from './types.js';
-import { log, delay, retryWithBackoff, isRetryableError } from './utils.js';
+} from './types';
+import { log, delay, retryWithBackoff, isRetryableError } from './utils';
 
 export class CompanyResearcher {
   private stagehand: Stagehand;
@@ -427,6 +429,158 @@ export class CompanyResearcher {
         tools: [],
         infrastructure: [],
       };
+    }
+  }
+
+  /**
+   * Extract recruiters from LinkedIn and company website
+   * Searches for recruiters, talent acquisition, and HR professionals
+   */
+  async extractRecruiters(companyName: string): Promise<Recruiters> {
+    log('Extracting recruiters...', 'info');
+
+    const recruiters: Recruiters = [];
+
+    try {
+      const page = this.getPage();
+
+      // Step 1: Try LinkedIn search for recruiters
+      log('Searching LinkedIn for recruiters...', 'info');
+      try {
+        // Search LinkedIn for company recruiters
+        const linkedInSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(companyName + ' recruiter')}&origin=GLOBAL_SEARCH_HEADER`;
+        await page.goto(linkedInSearchUrl, {
+          waitUntil: 'domcontentloaded',
+          timeoutMs: 30000,
+        });
+        await delay(3000); // Wait for content to load
+
+        // Extract recruiter profiles from LinkedIn search results
+        const linkedInRecruiters = await retryWithBackoff(
+          async () => {
+            return await this.stagehand.extract(
+              `Extract recruiter profiles from LinkedIn search results. Look for people with titles containing "Recruiter", "Talent Acquisition", "HR", "People Operations", or similar recruiting roles at ${companyName}.\n\n` +
+              'For each person found, extract:\n' +
+              '- Full name\n' +
+              '- Job title (exact title from their profile)\n' +
+              '- LinkedIn profile URL\n' +
+              '- Department they recruit for (if mentioned)\n\n' +
+              `Only include people who work at or recruit for ${companyName}. Limit to 10 recruiters.`,
+              RecruitersSchema
+            );
+          },
+          {
+            maxRetries: 2,
+            initialDelay: 2000,
+            shouldRetry: isRetryableError,
+          }
+        );
+
+        if (linkedInRecruiters?.recruiters?.length > 0) {
+          recruiters.push(...linkedInRecruiters.recruiters);
+          log(`Found ${linkedInRecruiters.recruiters.length} recruiters on LinkedIn`, 'success');
+        }
+      } catch (linkedInError) {
+        log(`LinkedIn search failed: ${linkedInError instanceof Error ? linkedInError.message : linkedInError}`, 'warn');
+      }
+
+      // Step 2: Check company careers/team page
+      log('Checking company careers/team page...', 'info');
+      try {
+        const companyWebsite = this.guessCompanyWebsite(companyName);
+
+        // Try careers page first
+        await page.goto(`${companyWebsite}/careers`, {
+          waitUntil: 'domcontentloaded',
+          timeoutMs: 20000,
+        });
+        await delay(2000);
+
+        const careersRecruiters = await this.stagehand.extract(
+          `Look for recruiting team members, HR contacts, or talent acquisition professionals on this page.\n\n` +
+          'Extract:\n' +
+          '- Full name\n' +
+          '- Job title\n' +
+          '- Email (if publicly listed)\n' +
+          '- Department they recruit for\n\n' +
+          'Also check for "Contact Recruiting", "Meet Our Team", or similar sections.',
+          RecruitersSchema
+        );
+
+        if (careersRecruiters?.recruiters?.length > 0) {
+          // Avoid duplicates by checking names
+          const existingNames = new Set(recruiters.map(r => r.name.toLowerCase()));
+          const newRecruiters = careersRecruiters.recruiters.filter(
+            r => !existingNames.has(r.name.toLowerCase())
+          );
+          recruiters.push(...newRecruiters);
+          log(`Found ${newRecruiters.length} additional recruiters on careers page`, 'success');
+        }
+      } catch (careersError) {
+        log(`Careers page search failed: ${careersError instanceof Error ? careersError.message : careersError}`, 'warn');
+      }
+
+      // Step 3: Try team/about page
+      try {
+        const companyWebsite = this.guessCompanyWebsite(companyName);
+        await page.goto(`${companyWebsite}/about`, {
+          waitUntil: 'domcontentloaded',
+          timeoutMs: 20000,
+        });
+        await delay(2000);
+
+        const teamRecruiters = await this.stagehand.extract(
+          `Look for HR, People Operations, or Recruiting team members on this about/team page.\n\n` +
+          'Extract:\n' +
+          '- Full name\n' +
+          '- Job title (look for titles with HR, Recruiting, Talent, People in them)\n' +
+          '- LinkedIn URL (if available)\n' +
+          '- Department\n',
+          RecruitersSchema
+        );
+
+        if (teamRecruiters?.recruiters?.length > 0) {
+          const existingNames = new Set(recruiters.map(r => r.name.toLowerCase()));
+          const newRecruiters = teamRecruiters.recruiters.filter(
+            r => !existingNames.has(r.name.toLowerCase())
+          );
+          recruiters.push(...newRecruiters);
+          log(`Found ${newRecruiters.length} additional recruiters on about page`, 'success');
+        }
+      } catch (aboutError) {
+        log(`About page search failed: ${aboutError instanceof Error ? aboutError.message : aboutError}`, 'warn');
+      }
+
+      // Step 4: Use LLM knowledge as fallback for well-known companies
+      if (recruiters.length === 0) {
+        log('No recruiters found, using LLM knowledge...', 'info');
+        try {
+          const knowledgeRecruiters = await this.stagehand.extract(
+            `Based on your knowledge, who are some known recruiters or talent acquisition professionals at ${companyName}?\n\n` +
+            'For well-known companies, you may have information about:\n' +
+            '- Head of Recruiting / Talent Acquisition\n' +
+            '- Technical Recruiters\n' +
+            '- University Recruiters\n' +
+            '- HR Leadership\n\n' +
+            'Provide names and titles if known. Include LinkedIn URLs if you know them.',
+            RecruitersSchema
+          );
+
+          if (knowledgeRecruiters?.recruiters?.length > 0) {
+            recruiters.push(...knowledgeRecruiters.recruiters);
+            log(`Added ${knowledgeRecruiters.recruiters.length} recruiters from LLM knowledge`, 'success');
+          }
+        } catch (knowledgeError) {
+          log(`LLM knowledge extraction failed: ${knowledgeError instanceof Error ? knowledgeError.message : knowledgeError}`, 'warn');
+        }
+      }
+
+      log(`Total recruiters found: ${recruiters.length}`, 'success');
+      return recruiters.slice(0, 10); // Limit to 10 recruiters
+
+    } catch (error) {
+      log(`Failed to extract recruiters: ${error}`, 'error');
+      return [];
     }
   }
 

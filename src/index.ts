@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 // MUST be first - configures environment to prevent pino errors
-import './init.js';
+import './init';
 import 'dotenv/config';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { CompanyResearcher } from './scraper.js';
-import { ReportGenerator } from './report-generator.js';
-import { log } from './utils.js';
+import { CompanyResearcher } from './scraper';
+import { ReportGenerator } from './report-generator';
+import { log } from './utils';
 
 const program = new Command();
 

@@ -39,15 +39,30 @@ export const CompetitorsSchema = z.object({
   competitors: z.array(CompetitorSchema).describe('Main competitors of the company'),
 });
 
+// Recruiter schemas for finding HR contacts
+export const RecruiterSchema = z.object({
+  name: z.string().describe('Full name of the recruiter'),
+  title: z.string().describe('Job title (e.g., Technical Recruiter, Talent Acquisition Manager)'),
+  linkedInUrl: z.string().optional().describe('LinkedIn profile URL'),
+  email: z.string().optional().describe('Email address if publicly available'),
+  department: z.string().optional().describe('Department or team they recruit for'),
+});
+
+export const RecruitersSchema = z.object({
+  recruiters: z.array(RecruiterSchema).describe('Recruiters and HR contacts at the company'),
+});
+
 // TypeScript types
 export type CompanyInfo = z.infer<typeof CompanyInfoSchema>;
 export type NewsItem = z.infer<typeof NewsItemSchema>;
 export type TechStack = z.infer<typeof TechStackSchema>;
 export type Competitor = z.infer<typeof CompetitorSchema>;
+export type Recruiter = z.infer<typeof RecruiterSchema>;
 
-// News and Competitors are arrays of items
+// News, Competitors, and Recruiters are arrays of items
 export type News = NewsItem[];
 export type Competitors = Competitor[];
+export type Recruiters = Recruiter[];
 
 export interface CompanyResearchReport {
   companyInfo: CompanyInfo;
