@@ -37,7 +37,12 @@
       "Bash(ls:*)",
       "WebFetch(domain:docs.exa.ai)",
       "WebFetch(domain:exa.ai)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(xargs -I {} sh -c 'git log -1 --format=\"\"\"\"%B\"\"\"\" {} | grep -qi claude && echo {}')",
+      "Bash(git push:*)",
+      "Bash(xargs -I {} git show {} --format=\"%B\" -s)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:velvetshark.com)"
     ],
     "deny": [],
     "ask": []

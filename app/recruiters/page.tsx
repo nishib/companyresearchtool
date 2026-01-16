@@ -81,9 +81,6 @@ export default function RecruitersPage() {
     <div className="container">
       <header>
         <h1>Recruiter Finder</h1>
-        <p className="subtitle">
-          Two features: company research reports and recruiter discovery for any company.
-        </p>
         <nav className="nav-links">
           <Link href="/" className="nav-link">Company Research</Link>
           <Link href="/recruiters" className="nav-link active">Recruiter Finder</Link>
