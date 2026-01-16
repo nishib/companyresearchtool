@@ -94,7 +94,7 @@ export class ExaRecruiterFinder {
    * Parse a LinkedIn profile result into a Recruiter object
    */
   private parseLinkedInProfile(
-    item: { url: string; title?: string; text?: string },
+    item: { url: string; title?: string | null; text?: string | null },
     companyName: string
   ): Recruiter | null {
     // Must be a LinkedIn profile URL (linkedin.com/in/)
@@ -102,8 +102,8 @@ export class ExaRecruiterFinder {
       return null;
     }
 
-    const title = item.title || '';
-    const text = (item.text || '').toLowerCase();
+    const title = item.title ?? '';
+    const text = (item.text ?? '').toLowerCase();
     const companyLower = companyName.toLowerCase();
 
     // Verify this person works at the target company
