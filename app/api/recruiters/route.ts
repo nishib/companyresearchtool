@@ -40,6 +40,14 @@ export async function POST(request: NextRequest) {
 
     // Fallback to Stagehand (browser-based)
     if (!recruiters || recruiters.length === 0) {
+      const hasBrowserbase = Boolean(process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID);
+      if (process.env.VERCEL && !hasBrowserbase) {
+        return NextResponse.json(
+          { error: 'Browserbase credentials are required on Vercel for Stagehand fallback. Set BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID, or provide EXA_API_KEY.' },
+          { status: 500 }
+        );
+      }
+
       if (!process.env.GOOGLE_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY) {
         // If Exa found nothing and no LLM key, return empty
         if (recruiters) {

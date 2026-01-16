@@ -345,12 +345,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const modelConfig = getModelConfig();
-  const env = process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID
-    ? 'BROWSERBASE' as const
-    : 'LOCAL' as const;
+  const hasBrowserbase = Boolean(process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID);
+  const env = hasBrowserbase ? 'BROWSERBASE' as const : 'LOCAL' as const;
+
+  if (process.env.VERCEL && !hasBrowserbase) {
+    return res.status(500).json({
+      error: 'Browserbase credentials are required on Vercel. Please set BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID.'
+    });
+  }
 
   console.log(`[Stagehand] Initializing with env: ${env}, model: ${modelConfig.modelName || 'default'}`);
-  console.log(`[Stagehand] Browserbase configured: ${!!process.env.BROWSERBASE_API_KEY && !!process.env.BROWSERBASE_PROJECT_ID}`);
+  console.log(`[Stagehand] Browserbase configured: ${hasBrowserbase}`);
   console.log(`[Stagehand] LLM API key configured: ${!!process.env.GOOGLE_API_KEY || !!process.env.ANTHROPIC_API_KEY || !!process.env.OPENAI_API_KEY}`);
 
   const stagehand = new Stagehand({

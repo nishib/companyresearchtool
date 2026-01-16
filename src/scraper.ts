@@ -1,6 +1,5 @@
 // MUST be first - configures environment to prevent pino errors
 import './init';
-import 'dotenv/config';
 import { Stagehand } from '@browserbasehq/stagehand';
 import { z } from 'zod';
 import {
