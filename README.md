@@ -2,9 +2,11 @@
 
 An AI-powered recruiting companion with two features: company research reports and a recruiter finder for any company. Built with [Stagehand SDK](https://github.com/browserbase/stagehand).
 
+Whether you're actively job hunting or exploring opportunities, this tool helps you prepare holistically: research companies before interviews to ask informed questions and stand out, and find recruiters to reach out to directly. Be prepared, be proactive.
+
 ## Features
 
-- Company research reports (overview, news, tech stack, competitors)
+- Company research reports (key facts, news, tech stack, competitors)
 - Recruiter finder with real-person filtering
 - Web UI (Next.js) + CLI
 - Markdown output
