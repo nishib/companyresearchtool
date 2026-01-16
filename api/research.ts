@@ -105,6 +105,35 @@ function cleanText(value?: string | null): string {
   return cleaned || 'Not Available';
 }
 
+function formatKeyFactValue(value?: string | null): string {
+  if (!value) return 'Not Specified';
+  const trimmed = value.trim();
+  if (!trimmed) return 'Not Specified';
+  const normalized = trimmed.toLowerCase();
+  const replacements: Record<string, string> = {
+    'ai': 'AI',
+    'usa': 'USA',
+    'u.s.a.': 'USA',
+    'us': 'US',
+    'u.s.': 'US',
+    'uk': 'UK',
+    'u.k.': 'UK',
+    'eu': 'EU',
+    'saas': 'SaaS',
+  };
+  if (replacements[normalized]) return replacements[normalized];
+  if (trimmed.includes('http://') || trimmed.includes('https://')) return trimmed;
+  return trimmed
+    .split(' ')
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (replacements[lower]) return replacements[lower];
+      if (!word) return word;
+      return word[0].toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
 function sanitizeNarrative(value: string, companyName: string): string {
   if (!value || value === 'Not Available') return 'Not Available';
   const blockedPhrases = [
@@ -555,8 +584,8 @@ Mission
 ${mission}
 
 Details
-Headquarters: ${companyInfo.headquarters ?? 'Not Available'}
-Industry: ${companyInfo.industry ?? 'Not Available'}
+Headquarters: ${formatKeyFactValue(companyInfo.headquarters)}
+Industry: ${formatKeyFactValue(companyInfo.industry)}
 Website: ${websiteOutput}
 ${competitorsSection}
 

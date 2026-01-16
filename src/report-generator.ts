@@ -43,6 +43,35 @@ export class ReportGenerator {
       return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
     };
 
+    const formatKeyFactValue = (value?: string | null): string => {
+      if (!value) return 'Not Specified';
+      const trimmed = value.trim();
+      if (!trimmed) return 'Not Specified';
+      const normalized = trimmed.toLowerCase();
+      const replacements: Record<string, string> = {
+        'ai': 'AI',
+        'usa': 'USA',
+        'u.s.a.': 'USA',
+        'us': 'US',
+        'u.s.': 'US',
+        'uk': 'UK',
+        'u.k.': 'UK',
+        'eu': 'EU',
+        'saas': 'SaaS',
+      };
+      if (replacements[normalized]) return replacements[normalized];
+      if (trimmed.includes('http://') || trimmed.includes('https://')) return trimmed;
+      return trimmed
+        .split(' ')
+        .map((word) => {
+          const lower = word.toLowerCase();
+          if (replacements[lower]) return replacements[lower];
+          if (!word) return word;
+          return word[0].toUpperCase() + word.slice(1);
+        })
+        .join(' ');
+    };
+
     const formatStackItem = (value: string): string => {
       const trimmed = value.trim();
       if (!trimmed) return trimmed;
@@ -104,8 +133,8 @@ export class ReportGenerator {
 
     if (companyInfo.headquarters || companyInfo.industry || companyInfo.website) {
       markdown += `Key Facts\n`;
-      if (companyInfo.headquarters) markdown += `Headquarters: ${companyInfo.headquarters}\n`;
-      if (companyInfo.industry) markdown += `Industry: ${companyInfo.industry}\n`;
+      if (companyInfo.headquarters) markdown += `Headquarters: ${formatKeyFactValue(companyInfo.headquarters)}\n`;
+      if (companyInfo.industry) markdown += `Industry: ${formatKeyFactValue(companyInfo.industry)}\n`;
       if (companyInfo.website) markdown += `Website: ${companyInfo.website}\n`;
       markdown += `\n`;
     }
