@@ -6,8 +6,8 @@ if (!process.env.VERCEL) {
 }
 import express from 'express';
 import cors from 'cors';
-import { CompanyResearcher } from './scraper';
-import { ReportGenerator } from './report-generator';
+import { CompanyResearcher } from './scraper.js';
+import { ReportGenerator } from './report-generator.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
