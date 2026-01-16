@@ -1,6 +1,9 @@
 // MUST be first - configures environment to prevent pino errors
-import './init';
-import 'dotenv/config';
+import './init.js';
+
+if (!process.env.VERCEL) {
+  await import('dotenv/config');
+}
 import express from 'express';
 import cors from 'cors';
 import { CompanyResearcher } from './scraper';

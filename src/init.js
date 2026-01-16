@@ -5,7 +5,7 @@ import { createRequire } from 'module';
 import { Transform } from 'stream';
 
 // Detect if we're in a serverless/production environment
-const isServerless = !!(
+const isServerless = Boolean(
   process.env.VERCEL ||
   process.env.AWS_LAMBDA_FUNCTION_NAME ||
   process.env.NETLIFY ||
@@ -18,73 +18,65 @@ if (isServerless) {
 
 // Configure environment variables to disable pino-pretty before any modules load
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'info';
-delete process.env.PINO_PRETTY; // Remove any pino-pretty config
-delete process.env.PINO_TRANSPORT_TARGET; // Disable transports
+delete process.env.PINO_PRETTY;
+delete process.env.PINO_TRANSPORT_TARGET;
 
 // Mock pino-pretty module to prevent it from loading
-// This is necessary because Stagehand SDK has pino-pretty as a dependency
 const require = createRequire(import.meta.url);
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
-Module.prototype.require = function (id: string) {
-  // Intercept pino-pretty and return a no-op function
+Module.prototype.require = function (id) {
   if (id === 'pino-pretty') {
     return function pinoPrettyMock() {
-      // Return a basic transform stream that does nothing
       return new Transform({
-        transform(chunk: any, encoding: string, callback: Function) {
+        transform(chunk, encoding, callback) {
           callback(null, chunk);
         }
       });
     };
   }
 
-  // For all other requires, use the original
-  return originalRequire.apply(this, arguments as any);
+  return originalRequire.apply(this, arguments);
 };
 
 // Set up global error/warning handler to suppress pino-pretty errors
 const originalEmit = process.emit;
-(process as any).emit = function (event: any, ...args: any[]) {
-  // Suppress pino-pretty related warnings and errors
+process.emit = function (event, ...args) {
   if (event === 'warning' && args[0]) {
     const warning = args[0];
     const message = warning?.message || String(warning);
 
-    if (message.includes('pino-pretty') || message.includes('pino') && message.includes('transport')) {
-      // Silently ignore pino-pretty warnings
+    if (message.includes('pino-pretty') || (message.includes('pino') && message.includes('transport'))) {
       return false;
     }
   }
 
-  if ((event === 'uncaughtException' || event === 'unhandledRejection')) {
+  if (event === 'uncaughtException' || event === 'unhandledRejection') {
     const error = args[0];
     if (error && typeof error === 'object') {
       const message = error.message || String(error);
 
-      // Suppress pino-pretty transport errors
-      if (message.includes('unable to determine transport target') ||
-          message.includes('pino-pretty') ||
-          (message.includes('pino') && message.includes('target'))) {
+      if (
+        message.includes('unable to determine transport target') ||
+        message.includes('pino-pretty') ||
+        (message.includes('pino') && message.includes('target'))
+      ) {
         console.warn('[Init] Suppressed pino-pretty error (expected in serverless)');
-        return true; // Mark as handled
+        return true;
       }
     }
   }
 
-  // For all other events, use original emit
-  return originalEmit.apply(this, arguments as any);
+  return originalEmit.apply(this, arguments);
 };
 
 // Prevent unhandled rejection crashes from pino-pretty
-process.on('unhandledRejection', (reason: any) => {
+process.on('unhandledRejection', (reason) => {
   const message = reason?.message || String(reason);
   if (message.includes('pino-pretty') || message.includes('unable to determine transport target')) {
-    // Ignore pino-pretty errors
     return;
   }
-  // Re-throw other unhandled rejections
   throw reason;
 });
 
