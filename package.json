@@ -14,7 +14,7 @@
     "cli": "tsx src/index.ts",
     "research": "tsx src/index.ts",
     "example": "tsx src/example.ts",
-    "server": "tsx api/index.ts",
+    "server": "tsx scripts/server.ts",
     "web": "npm run server"
   },
   "keywords": [

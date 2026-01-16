@@ -1,13 +1,14 @@
 // MUST be first - configures environment to prevent pino errors
-import './init.js';
+import '../src/init.js';
 
 if (!process.env.VERCEL) {
   await import('dotenv/config');
 }
+
 import express from 'express';
 import cors from 'cors';
-import { CompanyResearcher } from './scraper';
-import { ReportGenerator } from './report-generator';
+import { CompanyResearcher } from '../src/scraper';
+import { ReportGenerator } from '../src/report-generator';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -80,7 +81,7 @@ app.post('/api/research', async (req, res) => {
       sessions.set(sessionId, {
         status: 'completed',
         progress: 'Research complete!',
-        //@ts-ignore
+        // @ts-ignore
         result: {
           markdown,
           report,
@@ -120,14 +121,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Only start server if not in Vercel (Vercel handles this automatically)
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`\n🚀 Company Research Web App`);
-    console.log(`📡 Server running at http://localhost:${PORT}`);
-    console.log(`\nOpen your browser and visit: http://localhost:${PORT}\n`);
-  });
-}
-
-// Export for Vercel serverless
-export default app;
+app.listen(PORT, () => {
+  console.log(`\n🚀 Company Research Web App`);
+  console.log(`📡 Server running at http://localhost:${PORT}`);
+  console.log(`\nOpen your browser and visit: http://localhost:${PORT}\n`);
+});
