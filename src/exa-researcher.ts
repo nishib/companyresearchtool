@@ -53,75 +53,82 @@ export class ExaResearcher {
     };
   }
 
+  async getCompanyFacts(companyName: string): Promise<CompanyInfo> {
+    return this.extractCompanyInfo(companyName);
+  }
+
+  async getNews(companyName: string): Promise<News> {
+    return this.extractNews(companyName);
+  }
+
   private async extractCompanyInfo(companyName: string): Promise<CompanyInfo> {
     log('[Exa] Extracting company info...', 'info');
 
     try {
-      // Search for company info with content extraction
-      const result = await this.exa.searchAndContents(
-        `${companyName} company official website about`,
+      const results = await this.exa.searchAndContents(
+        `${companyName} official site about mission headquarters`,
         {
           type: 'auto',
-          numResults: 3,
+          numResults: 5,
           category: 'company',
           text: { maxCharacters: 2000 },
-          summary: true,
           livecrawl: 'preferred',
         }
       );
 
-      // Also search for specific company details
-      const detailsResult = await this.exa.searchAndContents(
-        `${companyName} headquarters location industry founded`,
-        {
-          type: 'auto',
-          numResults: 3,
-          text: { maxCharacters: 1000 },
-          summary: true,
+      const texts = results.results
+        .map((item) => item.text || '')
+        .filter(Boolean);
+
+      const joinedText = texts.join('\n');
+
+      const extractMission = () => {
+        const missionMatch = joinedText.match(/([^.\n]*\bmission\b[^.\n]*\.)/i);
+        return missionMatch?.[1]?.trim() || null;
+      };
+
+      const extractHeadquarters = () => {
+        const hqPatterns = [
+          /headquartered in ([^,.]+)/i,
+          /headquarters in ([^,.]+)/i,
+          /based in ([^,.]+)/i,
+          /located in ([^,.]+)/i,
+        ];
+        for (const pattern of hqPatterns) {
+          const match = joinedText.match(pattern);
+          if (match) {
+            return match[1].trim();
+          }
         }
-      );
+        return null;
+      };
 
-      // Extract info from results
-      const mainResult = result.results[0];
-      const detailResult = detailsResult.results[0];
-
-      // Parse the summary and text for structured info
-      const description = mainResult?.summary || mainResult?.text?.slice(0, 500) || `${companyName} is a technology company.`;
-      const detailText = (detailResult?.summary || detailResult?.text || '').toLowerCase();
-
-      // Try to extract headquarters from text
-      let headquarters = 'Not specified';
-      const hqPatterns = [
-        /headquartered in ([^,.]+)/i,
-        /headquarters in ([^,.]+)/i,
-        /based in ([^,.]+)/i,
-        /located in ([^,.]+)/i,
-      ];
-      for (const pattern of hqPatterns) {
-        const match = detailText.match(pattern);
-        if (match) {
-          headquarters = match[1].trim();
-          break;
+      const extractIndustry = () => {
+        const industryMatch = joinedText.match(/industry\s*[:\-]\s*([^\n.]+)/i);
+        if (industryMatch) {
+          return industryMatch[1].trim();
         }
-      }
-
-      // Try to extract industry
-      let industry = 'Technology';
-      const industryKeywords = ['fintech', 'ai', 'artificial intelligence', 'e-commerce', 'saas', 'payments', 'cloud', 'software', 'healthcare', 'biotech'];
-      for (const keyword of industryKeywords) {
-        if (detailText.includes(keyword)) {
-          industry = keyword.charAt(0).toUpperCase() + keyword.slice(1);
-          break;
+        const sectorMatch = joinedText.match(/sector\s*[:\-]\s*([^\n.]+)/i);
+        if (sectorMatch) {
+          return sectorMatch[1].trim();
         }
-      }
+        return null;
+      };
+
+      const extractDescription = () => {
+        const firstParagraph = texts
+          .map((text) => text.split('\n').find((line) => line.trim().length > 80))
+          .find(Boolean);
+        return firstParagraph?.trim() || null;
+      };
 
       const companyInfo: CompanyInfo = {
         name: companyName,
-        description,
-        mission: mainResult?.text?.slice(0, 300) || description,
-        headquarters,
-        industry,
-        website: mainResult?.url || `https://www.${companyName.toLowerCase().replace(/\s+/g, '')}.com`,
+        description: extractDescription(),
+        mission: extractMission(),
+        headquarters: extractHeadquarters(),
+        industry: extractIndustry(),
+        website: results.results.find((item) => item.url)?.url || null,
       };
 
       log('[Exa] Company info extracted', 'success');
@@ -130,11 +137,11 @@ export class ExaResearcher {
       log(`[Exa] Failed to extract company info: ${error}`, 'warn');
       return {
         name: companyName,
-        description: `${companyName} is a technology company.`,
-        mission: 'Information not available',
-        headquarters: 'Not specified',
-        industry: 'Technology',
-        website: `https://www.${companyName.toLowerCase().replace(/\s+/g, '')}.com`,
+        description: null,
+        mission: null,
+        headquarters: null,
+        industry: null,
+        website: null,
       };
     }
   }

@@ -225,73 +225,99 @@ export class CompanyResearcher {
     try {
       const page = this.getPage();
 
-      // Navigate directly to the company website
       const companyWebsite = this.guessCompanyWebsite(companyName);
-      log(`Navigating to ${companyWebsite}...`, 'info');
+      const candidatePaths = [
+        '',
+        'about',
+        'about-us',
+        'company',
+        'company/about',
+        'mission',
+        'values',
+        'leadership',
+        'press',
+        'newsroom',
+      ];
 
-      // Use waitUntil to handle page redirects properly
-      try {
-        await page.goto(companyWebsite, {
-          waitUntil: 'networkidle',
-          timeoutMs: 30000,
-        });
-      } catch (navError) {
-        // If navigation fails, try with domcontentloaded instead
-        log('Network idle failed, trying domcontentloaded...', 'warn');
-        await page.goto(companyWebsite, {
-          waitUntil: 'domcontentloaded',
-          timeoutMs: 30000,
-        });
-      }
+      let combined: CompanyInfo = {
+        name: companyName,
+        mission: null,
+        description: null,
+        headquarters: null,
+        industry: null,
+        website: null,
+      };
 
-      await delay(5000); // Extra wait for dynamic content
+      for (const pathSegment of candidatePaths) {
+        const url = pathSegment
+          ? `${companyWebsite}/${pathSegment}`.replace(/\/{2,}/g, '/').replace(':/', '://')
+          : companyWebsite;
 
-      // Extract company information from the website with retry logic
-      let companyInfo;
-      try {
-        log(`[Extract] Starting extraction for ${companyName} from ${companyWebsite}`, 'info');
-
-        companyInfo = await retryWithBackoff(
-          async () => {
-            return await this.stagehand.extract(
-              `You are researching ${companyName}. Use ONLY the visible page content as your source. Do not infer or use general knowledge. Do not paraphrase; use exact wording from the page. If a field is not explicitly stated on the page, return null for that field.\n\n` +
-              'FIELDS:\n' +
-              `- name: "${companyName}" or official name from page\n` +
-              `- description: 2-4 sentences summarizing what ${companyName} does, based only on page content\n` +
-              `- mission: 1-3 exact sentences that describe ${companyName}'s mission or purpose as stated on the page (must include the word "mission" or be part of a mission statement). Do not include a company name header or repeat the company name unless it appears in the sentence.\n` +
-              `- headquarters: City and country/state as stated on the page\n` +
-              `- industry: Specific sector as stated on the page\n` +
-              `- website: Official URL stated on the page`,
-              CompanyInfoSchema
-            );
-          },
-          {
-            maxRetries: 2,
-            initialDelay: 2000,
-            shouldRetry: isRetryableError,
+        try {
+          log(`Navigating to ${url}...`, 'info');
+          try {
+            await page.goto(url, {
+              waitUntil: 'networkidle',
+              timeoutMs: 30000,
+            });
+          } catch (navError) {
+            log('Network idle failed, trying domcontentloaded...', 'warn');
+            await page.goto(url, {
+              waitUntil: 'domcontentloaded',
+              timeoutMs: 30000,
+            });
           }
-        );
 
-        log('Company information extracted', 'success');
-        console.log(`[Extract] Successfully extracted data:`, JSON.stringify(companyInfo, null, 2));
+          await delay(4000);
 
-        log('Company fields extracted from page content', 'success');
+          const pageInfo = await retryWithBackoff(
+            async () => {
+              return await this.stagehand.extract(
+                `You are researching ${companyName}. Use ONLY the visible page content as your source. Do not infer or use general knowledge. Do not paraphrase; use exact wording from the page. If a field is not explicitly stated on the page, return null for that field.\n\n` +
+                'FIELDS:\n' +
+                `- name: "${companyName}" or official name from page\n` +
+                `- description: 2-4 sentences summarizing what ${companyName} does, based only on page content\n` +
+                `- mission: 1-3 exact sentences that describe ${companyName}'s mission or purpose as stated on the page (must include the word "mission" or be part of a mission statement). Do not include a company name header or repeat the company name unless it appears in the sentence.\n` +
+                `- headquarters: City and country/state as stated on the page\n` +
+                `- industry: Specific sector as stated on the page\n` +
+                `- website: Official URL stated on the page`,
+                CompanyInfoSchema
+              );
+            },
+            {
+              maxRetries: 1,
+              initialDelay: 1500,
+              shouldRetry: isRetryableError,
+            }
+          );
 
-        return companyInfo;
-      } catch (extractError) {
-        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
-        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
-        log(`Failed to extract company info after retries: ${errorMessage}`, 'error');
-        console.error(`[Extract] Failed to extract company info:`, {
-          error: errorMessage,
-          stack: errorStack,
-          companyName,
-          website: companyWebsite,
-          errorType: extractError?.constructor?.name,
-          errorDetails: extractError
-        });
-        throw extractError; // Re-throw to be caught by outer catch
+          combined = {
+            name: pageInfo.name || combined.name,
+            mission: combined.mission || pageInfo.mission || null,
+            description: combined.description || pageInfo.description || null,
+            headquarters: combined.headquarters || pageInfo.headquarters || null,
+            industry: combined.industry || pageInfo.industry || null,
+            website: combined.website || pageInfo.website || null,
+          };
+
+          const hasAllCoreFields =
+            Boolean(combined.description) &&
+            Boolean(combined.mission) &&
+            Boolean(combined.headquarters) &&
+            Boolean(combined.industry);
+
+          if (hasAllCoreFields) {
+            break;
+          }
+        } catch (extractError) {
+          const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+          log(`Company info source failed (${pathSegment || 'root'}): ${errorMessage}`, 'warn');
+        }
       }
+
+      log('Company fields extracted from page content', 'success');
+      console.log(`[Extract] Combined company info:`, JSON.stringify(combined, null, 2));
+      return combined;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -361,36 +387,41 @@ export class CompanyResearcher {
     try {
       const page = this.getPage();
 
-      // Navigate to company newsroom or blog
       const companyWebsite = this.guessCompanyWebsite(companyName);
-      await page.goto(`${companyWebsite}/newsroom`);
-      await delay(2000);
+      const newsPaths = [
+        'newsroom',
+        'news',
+        'blog',
+        'press',
+        'updates',
+        'company/news',
+      ];
 
-      // Extract news items from search results
-      let newsData;
-      try {
-        log(`[Extract] Starting news extraction for ${companyName}`, 'info');
-        newsData = await this.stagehand.extract(
-          'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible.',
-          NewsSchema
-        );
-        const news = newsData.articles || [];
-        log(`Extracted ${news.length} news items`, 'success');
-        console.log(`[Extract] Successfully extracted news:`, JSON.stringify(newsData, null, 2));
-        return news.slice(0, 5); // Limit to 5 items
-      } catch (extractError) {
-        const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
-        const errorStack = extractError instanceof Error ? extractError.stack : undefined;
-        log(`Failed to extract news: ${errorMessage}`, 'error');
-        console.error(`[Extract] Failed to extract news:`, {
-          error: errorMessage,
-          stack: errorStack,
-          companyName,
-          errorType: extractError?.constructor?.name,
-          errorDetails: extractError
-        });
-        throw extractError; // Re-throw to be caught by outer catch
+      for (const pathSegment of newsPaths) {
+        const url = `${companyWebsite}/${pathSegment}`.replace(/\/{2,}/g, '/').replace(':/', '://');
+        try {
+          log(`[Extract] Checking news source: ${url}`, 'info');
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeoutMs: 30000 });
+          await delay(2000);
+
+          const newsData = await this.stagehand.extract(
+            'Extract the top 5 recent news articles about this company. For each article, get the title, date, source, and a brief summary. Only include news from the last 6 months if possible. Use only the visible content.',
+            NewsSchema
+          );
+          const news = newsData.articles || [];
+          if (news.length > 0) {
+            log(`Extracted ${news.length} news items from ${pathSegment}`, 'success');
+            console.log(`[Extract] Successfully extracted news:`, JSON.stringify(newsData, null, 2));
+            return news.slice(0, 5);
+          }
+        } catch (extractError) {
+          const errorMessage = extractError instanceof Error ? extractError.message : String(extractError);
+          log(`News source failed (${pathSegment}): ${errorMessage}`, 'warn');
+        }
       }
+
+      log('No news items found from known news paths', 'warn');
+      return [];
     } catch (error) {
       log(`Failed to extract news: ${error}`, 'warn');
       return [];

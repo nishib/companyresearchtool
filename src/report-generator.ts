@@ -16,6 +16,8 @@ export class ReportGenerator {
       return cleaned || fallback;
     };
 
+    const escapeRegex = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     const sanitizeNarrative = (value: string, companyName: string): string => {
       if (!value || value === 'Not Available') return 'Not Available';
       const blockedPhrases = [
@@ -25,7 +27,8 @@ export class ReportGenerator {
         /\bemploys\b/i,
         /\byoy\b/i,
       ];
-      const withoutHeader = value.replace(new RegExp(`^${companyName}\\s*\\([^)]*\\)\\s*`, 'i'), '').trim();
+      const escapedName = escapeRegex(companyName);
+      const withoutHeader = value.replace(new RegExp(`^${escapedName}\\s*\\([^)]*\\)\\s*`, 'i'), '').trim();
       const sentences = withoutHeader.split(/(?<=[.!?])\s+/);
       const kept = sentences.filter((sentence) => {
         const trimmed = sentence.trim();
@@ -123,13 +126,6 @@ export class ReportGenerator {
     markdown += `Company Research Report\n\n`;
     markdown += `Company: ${companyInfo.name}\n`;
     markdown += `Research Date: ${formatDate()}\n\n`;
-
-    // Company Information
-    const overview = sanitizeNarrative(cleanText(companyInfo.description, 'Not Available'), companyInfo.name);
-    const mission = sanitizeNarrative(cleanText(companyInfo.mission), companyInfo.name);
-    markdown += `Company Overview\n`;
-    markdown += `Mission: ${mission}\n\n`;
-    markdown += `${overview === 'Not Available' ? 'No Description Available' : overview}\n\n`;
 
     if (companyInfo.headquarters || companyInfo.industry || companyInfo.website) {
       markdown += `Key Facts\n`;

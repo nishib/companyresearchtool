@@ -64,6 +64,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (report) {
+      const missingFacts =
+        !report.companyInfo?.headquarters ||
+        !report.companyInfo?.industry ||
+        !report.companyInfo?.mission ||
+        !report.companyInfo?.description ||
+        !report.companyInfo?.website;
+
+      if (missingFacts || report.news.length === 0) {
+        if (isExaAvailable()) {
+          try {
+            const exaResearcher = new ExaResearcher();
+            if (missingFacts) {
+              const exaFacts = await exaResearcher.getCompanyFacts(companyName);
+              report.companyInfo = {
+                ...report.companyInfo,
+                headquarters: report.companyInfo.headquarters || exaFacts.headquarters || null,
+                industry: report.companyInfo.industry || exaFacts.industry || null,
+                mission: report.companyInfo.mission || exaFacts.mission || null,
+                description: report.companyInfo.description || exaFacts.description || null,
+                website: report.companyInfo.website || exaFacts.website || null,
+              };
+            }
+
+            if (report.news.length === 0) {
+              const exaNews = await exaResearcher.getNews(companyName);
+              if (exaNews.length > 0) {
+                report.news = exaNews;
+              }
+            }
+          } catch (exaFallbackError) {
+            console.warn('[Research API] Exa fallback enrichment failed:', exaFallbackError);
+          }
+        }
+      }
+    }
+
     const reportGenerator = new ReportGenerator();
     const markdown = await reportGenerator.generateMarkdown(report);
 
