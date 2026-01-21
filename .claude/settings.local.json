@@ -42,7 +42,8 @@
       "Bash(git push:*)",
       "Bash(xargs -I {} git show {} --format=\"%B\" -s)",
       "Bash(gh api:*)",
-      "WebFetch(domain:velvetshark.com)"
+      "WebFetch(domain:velvetshark.com)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
