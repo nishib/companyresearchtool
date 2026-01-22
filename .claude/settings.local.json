@@ -43,7 +43,8 @@
       "Bash(xargs -I {} git show {} --format=\"%B\" -s)",
       "Bash(gh api:*)",
       "WebFetch(domain:velvetshark.com)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(npm i:*)"
     ],
     "deny": [],
     "ask": []
